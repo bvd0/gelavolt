@@ -14,7 +14,11 @@ GelaVolt's primary goals are:
 
 
 # Example build environment setup
-## Linux (Debian 11)
+## Linux (Debian 11, Ubuntu 20.04)
+Ubuntu only; add the `universe` repository (required for `nodejs`):
+```sh
+sudo add-apt-repository universe  # Ubuntu only
+```
 ### Install the tools used in these examples:
 ```sh
 sudo apt install -V  git nodejs
@@ -28,7 +32,7 @@ Install other dependencies:
 ```sh
 sudo apt install -V  libwayland-dev libegl-dev wayland-protocols libxkbcommon-dev
 ```
-(Tested on [debian-live-11.2.0-amd64-standard.iso](https://cdimage.debian.org/cdimage/release/11.2.0-live/amd64/iso-hybrid/))
+(Tested on [debian-live-11.2.0-amd64-standard.iso](https://cdimage.debian.org/cdimage/release/11.2.0-live/amd64/iso-hybrid/) and [ubuntu-20.04.4-desktop-amd64.iso](https://releases.ubuntu.com/20.04.4/))
 ##
 
 ### Get the GelaVolt source code and the [Kha](https://github.com/Kode/Kha) SDK:
@@ -44,15 +48,21 @@ git clone --recursive https://github.com/Kode/Kha.git
 ```
 
 ### Build
+Set `./gelavolt` as the current working directory:
+```sh
+cd ./gelavolt
+```
 Linux:
 ```sh
-node ./Kha/make.js --from ./gelavolt --to ./gelavolt/build --compile -t linux -g opengl 
+node ../Kha/make.js --compile -t linux -g opengl
 ```
 Windows:
 ```sh
-node ./Kha/make.js --from ./gelavolt --to ./gelavolt/build --compile -t windows -g direct3d11 
+node ../Kha/make.js --compile -t windows -g direct3d11
 ```
 html5:
 ```sh
-node ./Kha/make.js --from ./gelavolt --to ./gelavolt/build -t html5
+node ../Kha/make.js -t html5
 ```
+
+(Use `node ../Kha/make.js -h` for more info about `make.js`)
