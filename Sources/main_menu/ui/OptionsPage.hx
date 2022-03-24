@@ -1,10 +1,14 @@
 package main_menu.ui;
 
+import ui.AreYouSureSubPageWidget;
+import input.GamepadBrand;
+import ui.OptionListWidget;
+import ui.IListWidget;
+import input.IInputDevice;
 import input.AnyInputDevice;
 import ui.KeyboardConfirmWrapper;
 import ui.AnyGamepadDetectWrapper;
 import ui.InputLimitedListPage;
-import input.KeyboardInputDevice;
 import game.ui.ControlsPageWidget;
 import ui.SubPageWidget;
 import save_data.PrefsSettings;
@@ -32,39 +36,15 @@ class OptionsPage extends ListMenuPage {
 					widgetBuilder: (menu) -> {
 						final inputDevice = menu.inputDevice;
 
+						var middle: Array<IListWidget>;
+
 						switch (inputDevice.type) {
 							case KEYBOARD | GAMEPAD:
-								return [
-									new ControlsPageWidget({
-										title: "Menu Controls",
-										description: ["Change Controls Related To", "Menu Navigation"],
-										actions: [PAUSE, LEFT, RIGHT, UP, DOWN, BACK, CONFIRM],
-										inputDevice: inputDevice
-									}),
-									new ControlsPageWidget({
-										title: "Game Controls",
-										description: ["Change Controls Related To", "Gameplay"],
-										actions: [SHIFT_LEFT, SHIFT_RIGHT, SOFT_DROP, HARD_DROP, ROTATE_LEFT, ROTATE_RIGHT],
-										inputDevice: inputDevice
-									}),
-									new ControlsPageWidget({
-										title: "Training Controls",
-										description: ["Change Controls Specific To", "Training Mode"],
-										actions: [
-											TOGGLE_EDIT_MODE,
-											PREVIOUS_STEP,
-											NEXT_STEP,
-											PREVIOUS_COLOR,
-											NEXT_COLOR,
-											TOGGLE_MARKERS
-										],
-										inputDevice: inputDevice
-									}),
-								];
+								middle = buildControls(inputDevice);
 							case ANY:
 								final keyboardDevice = AnyInputDevice.instance.getKeyboard();
 
-								return [
+								middle = [
 									new SubPageWidget({
 										title: "Keyboard Controls",
 										description: ["Change Keybindings"],
@@ -73,33 +53,7 @@ class OptionsPage extends ListMenuPage {
 											pageBuilder: () -> new InputLimitedListPage({
 												header: "Keyboard Controls",
 												inputDevice: keyboardDevice,
-												widgetBuilder: (_) -> [
-													new ControlsPageWidget({
-														title: "Menu Controls",
-														description: ["Change Controls Related To", "Menu Navigation"],
-														actions: [PAUSE, LEFT, RIGHT, UP, DOWN, BACK, CONFIRM],
-														inputDevice: keyboardDevice
-													}),
-													new ControlsPageWidget({
-														title: "Game Controls",
-														description: ["Change Controls Related To", "Gameplay"],
-														actions: [SHIFT_LEFT, SHIFT_RIGHT, SOFT_DROP, HARD_DROP, ROTATE_LEFT, ROTATE_RIGHT],
-														inputDevice: keyboardDevice
-													}),
-													new ControlsPageWidget({
-														title: "Training Controls",
-														description: ["Change Controls Specific To", "Training Mode"],
-														actions: [
-															TOGGLE_EDIT_MODE,
-															PREVIOUS_STEP,
-															NEXT_STEP,
-															PREVIOUS_COLOR,
-															NEXT_COLOR,
-															TOGGLE_MARKERS
-														],
-														inputDevice: keyboardDevice
-													}),
-												],
+												widgetBuilder: (_) -> buildControls(keyboardDevice)
 											})
 										})
 									}),
@@ -110,39 +64,15 @@ class OptionsPage extends ListMenuPage {
 											keyboardDevice: keyboardDevice,
 											pageBuilder: (gamepadDevice) -> new InputLimitedListPage({
 												header: "Gamepad Controls",
-												widgetBuilder: (_) -> [
-													new ControlsPageWidget({
-														title: "Menu Controls",
-														description: ["Change Controls Related To", "Menu Navigation"],
-														actions: [PAUSE, LEFT, RIGHT, UP, DOWN, BACK, CONFIRM],
-														inputDevice: gamepadDevice
-													}),
-													new ControlsPageWidget({
-														title: "Game Controls",
-														description: ["Change Controls Related To", "Gameplay"],
-														actions: [SHIFT_LEFT, SHIFT_RIGHT, SOFT_DROP, HARD_DROP, ROTATE_LEFT, ROTATE_RIGHT],
-														inputDevice: gamepadDevice
-													}),
-													new ControlsPageWidget({
-														title: "Training Controls",
-														description: ["Change Controls Specific To", "Training Mode"],
-														actions: [
-															TOGGLE_EDIT_MODE,
-															PREVIOUS_STEP,
-															NEXT_STEP,
-															PREVIOUS_COLOR,
-															NEXT_COLOR,
-															TOGGLE_MARKERS
-														],
-														inputDevice: gamepadDevice
-													}),
-												],
-												inputDevice: gamepadDevice
+												inputDevice: gamepadDevice,
+												widgetBuilder: (_) -> buildControls(gamepadDevice)
 											})
 										})
 									})
 								];
 						}
+
+						return buildUniversalTop(inputDevice).concat(middle).concat(buildUniversalBottom(inputDevice));
 					}
 				}),
 				#if sys
@@ -224,9 +154,110 @@ class OptionsPage extends ListMenuPage {
 				new SubPageWidget({
 					title: "Profiles",
 					description: ["View and Edit Profiles"],
-					subPage: new ProfilePage()
+					subPage: new ProfileListPage()
 				})
 			]
 		});
+	}
+
+	function buildUniversalTop(inputDevice: IInputDevice): Array<IListWidget> {
+		final inputSettings = inputDevice.inputSettings;
+
+		return [
+			new NumberRangeWidget({
+				title: "Gamepad Stick Deadzone",
+				description: [
+					"Adjust The Threshold Where",
+					"The Analog Stick Doesn't Respond",
+					"To Inputs",
+					"",
+					"Increase This Value In Small Increments",
+					" If You Experience Drifting, Rebounding",
+					"or Weird Inputs In General"
+				],
+				startValue: inputSettings.deadzone,
+				minValue: 0,
+				maxValue: 0.9,
+				delta: 0.05,
+				onChange: (value) -> {
+					inputSettings.deadzone = value;
+					SaveManager.saveProfiles();
+				}
+			}),
+			new OptionListWidget({
+				title: "Gamepad Brand",
+				description: ["Change The Type Of Button Icons", "To Display"],
+				options: [GamepadBrand.DS4, SW_PRO, JOYCON, XBONE, XB360],
+				startIndex: switch (inputSettings.gamepadBrand) {
+					case DS4: 0;
+					case SW_PRO: 1;
+					case JOYCON: 2;
+					case XBONE: 3;
+					case XB360: 4;
+				},
+				onChange: (value) -> {
+					inputSettings.gamepadBrand = value;
+					SaveManager.saveProfiles();
+				}
+			}),
+		];
+	}
+
+	function buildUniversalBottom(inputDevice: IInputDevice): Array<IListWidget> {
+		return [
+			new AreYouSureSubPageWidget({
+				title: "Reset To Default",
+				description: ["Reset Input Settings"],
+				content: "This Will IRREVERSIBLY Reset Your Input Settings",
+				callback: () -> {
+					inputDevice.inputSettings.setDefaults();
+					SaveManager.saveProfiles();
+				}
+			})
+		];
+	}
+
+	function buildControls(inputDevice: IInputDevice): Array<IListWidget> {
+		return [
+			new ControlsPageWidget({
+				title: "Menu Controls",
+				description: ["Change Controls Related To", "Menu Navigation"],
+				actions: [PAUSE, MENU_LEFT, MENU_RIGHT, MENU_UP, MENU_DOWN, BACK, CONFIRM],
+				inputDevice: inputDevice
+			}),
+			new ControlsPageWidget({
+				title: "Game Controls",
+				description: ["Change Controls Related To", "Gameplay"],
+				actions: [SHIFT_LEFT, SHIFT_RIGHT, SOFT_DROP, HARD_DROP, ROTATE_LEFT, ROTATE_RIGHT],
+				inputDevice: inputDevice
+			}),
+			new ListSubPageWidget({
+				header: "Training Controls",
+				description: ["Change Controls Specific To", "Training Mode"],
+				widgetBuilder: (_) -> [
+					new ControlsPageWidget({
+						title: "Universal Controls",
+						description: ["Change Controls That Are Used", "Both In Play Mode And", "Edit Mode"],
+						actions: [TOGGLE_EDIT_MODE],
+						inputDevice: inputDevice
+					}),
+					new ControlsPageWidget({
+						title: "Play Mode Controls",
+						description: ["Change Controls That Are Only", "Available In Play Mode"],
+						actions: [PREVIOUS_GROUP, NEXT_GROUP],
+						inputDevice: inputDevice
+					}),
+					new ControlsPageWidget({
+						title: "Edit Mode Controls",
+						description: ["Change Controls That Are Only", "Available In Edit Mode"],
+						actions: [
+							EDIT_LEFT, EDIT_RIGHT, EDIT_UP, EDIT_DOWN, EDIT_CLEAR, EDIT_SET, PREVIOUS_STEP, NEXT_STEP, PREVIOUS_COLOR, NEXT_COLOR,
+							TOGGLE_MARKERS
+						],
+						inputDevice: inputDevice
+					})
+				]
+			}),
+		];
 	}
 }

@@ -1,191 +1,306 @@
 package save_data;
 
+import input.AxisSpriteCoordinates.AXIS_SPRITE_COORDINATES;
+import input.ButtonSpriteCoordinates.BUTTON_SPRITE_COORDINATES;
+import input.GamepadBrand;
+import haxe.ds.StringMap;
 import game.actions.Action;
 import input.InputMapping;
 
-@:structInit
-class InputSettings {
-	@:optional public final menu: MenuInputs = {
-		pause: {
-			keyboardInput: Escape,
-			gamepadInput: OPTIONS
-		},
-		left: {
-			keyboardInput: Left,
-			gamepadInput: DPAD_LEFT
-		},
-		right: {
-			keyboardInput: Right,
-			gamepadInput: DPAD_RIGHT
-		},
-		down: {
-			keyboardInput: Down,
-			gamepadInput: DPAD_DOWN
-		},
-		up: {
-			keyboardInput: Up,
-			gamepadInput: DPAD_UP
-		},
-		back: {
-			keyboardInput: Backspace,
-			gamepadInput: CROSS
-		},
-		confirm: {
-			keyboardInput: Return,
-			gamepadInput: CIRCLE
-		}
-	};
-
-	@:optional public final game: GameInputs = {
-		shiftLeft: {keyboardInput: Left, gamepadInput: DPAD_LEFT},
-		shiftRight: {keyboardInput: Right, gamepadInput: DPAD_RIGHT},
-		softDrop: {keyboardInput: Down, gamepadInput: DPAD_DOWN},
-		hardDrop: {keyboardInput: Up, gamepadInput: DPAD_UP},
-		rotateLeft: {keyboardInput: D, gamepadInput: CROSS},
-		rotateRight: {keyboardInput: F, gamepadInput: CIRCLE}
-	};
-
-	@:optional public final training: TrainingInputs = {
-		toggleEditMode: {keyboardInput: Q, gamepadInput: SHARE},
-		previousStep: {keyboardInput: Y, gamepadInput: SQUARE},
-		nextStep: {keyboardInput: X, gamepadInput: TRIANGLE},
-		previousColor: {keyboardInput: C, gamepadInput: L2},
-		nextColor: {keyboardInput: V, gamepadInput: R2},
-		toggleMarkers: {keyboardInput: B, gamepadInput: R1}
-	};
-
-	public function getMapping(action: Action) {
-		return switch (action) {
-			case PAUSE: menu.pause;
-			case LEFT: menu.left;
-			case RIGHT: menu.right;
-			case DOWN: menu.down;
-			case UP: menu.up;
-			case BACK: menu.back;
-			case CONFIRM: menu.confirm;
-
-			case SHIFT_LEFT: game.shiftLeft;
-			case SHIFT_RIGHT: game.shiftRight;
-			case SOFT_DROP: game.softDrop;
-			case HARD_DROP: game.hardDrop;
-			case ROTATE_LEFT: game.rotateLeft;
-			case ROTATE_RIGHT: game.rotateRight;
-
-			case TOGGLE_EDIT_MODE: training.toggleEditMode;
-			case PREVIOUS_STEP: training.previousStep;
-			case NEXT_STEP: training.nextStep;
-			case PREVIOUS_COLOR: training.previousColor;
-			case NEXT_COLOR: training.nextColor;
-			case TOGGLE_MARKERS: training.toggleMarkers;
-		}
-	}
-
-	public function setMapping(action: Action, mapping: InputMapping) {
-		switch (action) {
-			case PAUSE:
-				menu.pause = mapping;
-			case LEFT:
-				menu.left = mapping;
-			case RIGHT:
-				menu.right = mapping;
-			case DOWN:
-				menu.down = mapping;
-			case UP:
-				menu.up = mapping;
-			case BACK:
-				menu.back = mapping;
-			case CONFIRM:
-				menu.confirm = mapping;
-
-			case SHIFT_LEFT:
-				game.shiftLeft = mapping;
-			case SHIFT_RIGHT:
-				game.shiftRight = mapping;
-			case SOFT_DROP:
-				game.softDrop = mapping;
-			case HARD_DROP:
-				game.hardDrop = mapping;
-			case ROTATE_LEFT:
-				game.rotateLeft = mapping;
-			case ROTATE_RIGHT:
-				game.rotateRight = mapping;
-
-			case TOGGLE_EDIT_MODE:
-				training.toggleEditMode = mapping;
-			case PREVIOUS_STEP:
-				training.previousStep = mapping;
-			case NEXT_STEP:
-				training.nextStep = mapping;
-			case PREVIOUS_COLOR:
-				training.previousColor = mapping;
-			case NEXT_COLOR:
-				training.nextColor = mapping;
-			case TOGGLE_MARKERS:
-				training.toggleMarkers = mapping;
-		}
-	}
-
-	public function exportData(): InputSettingsData {
-		return {
-			menu: {
-				pause: menu.pause,
-				left: menu.left,
-				right: menu.right,
-				down: menu.down,
-				up: menu.up,
-				back: menu.back,
-				confirm: menu.confirm
-			},
-			game: {
-				shiftLeft: game.shiftLeft,
-				shiftRight: game.shiftRight,
-				softDrop: game.softDrop,
-				hardDrop: game.hardDrop,
-				rotateLeft: game.rotateLeft,
-				rotateRight: game.rotateRight
-			},
-			training: {
-				toggleEditMode: training.toggleEditMode,
-				previousStep: training.previousStep,
-				nextStep: training.nextStep,
-				previousColor: training.previousColor,
-				nextColor: training.nextColor,
-				toggleMarkers: training.toggleMarkers
-			}
-		};
-	}
+enum abstract InputSettingsKey(String) to String {
+	final MAPPINGS;
+	final DEADZONE;
+	final GAMEPAD_BRAND;
 }
 
-typedef InputSettingsData = {
-	menu: MenuInputs,
-	game: GameInputs,
-	training: TrainingInputs
-};
+class InputSettings {
+	public static final MAPPINGS_DEFAULTS: Map<Action, InputMapping> = [
+		PAUSE => {
+			keyboardInput: Escape,
+			gamepadButton: OPTIONS,
+			gamepadAxis: {
+				axis: null,
+				direction: null
+			}
+		},
+		MENU_LEFT => {
+			keyboardInput: Left,
+			gamepadButton: DPAD_LEFT,
+			gamepadAxis: {axis: 0, direction: -1}
+		},
+		MENU_RIGHT => {
+			keyboardInput: Right,
+			gamepadButton: DPAD_RIGHT,
+			gamepadAxis: {axis: 0, direction: 1}
+		},
+		MENU_DOWN => {
+			keyboardInput: Down,
+			gamepadButton: DPAD_DOWN,
+			gamepadAxis: {axis: 1, direction: 1},
+		},
+		MENU_UP => {
+			keyboardInput: Up,
+			gamepadButton: DPAD_UP,
+			gamepadAxis: {axis: 1, direction: -1}
+		},
+		BACK => {
+			keyboardInput: Backspace,
+			gamepadButton: CROSS,
+			gamepadAxis: {
+				axis: null,
+				direction: null
+			}
+		},
+		CONFIRM => {
+			keyboardInput: Return,
+			gamepadButton: CIRCLE,
+			gamepadAxis: {
+				axis: null,
+				direction: null
+			}
+		},
+		SHIFT_LEFT => {
+			keyboardInput: Left,
+			gamepadButton: DPAD_LEFT,
+			gamepadAxis: {
+				axis: 0,
+				direction: -1
+			}
+		},
+		SHIFT_RIGHT => {
+			keyboardInput: Right,
+			gamepadButton: DPAD_RIGHT,
+			gamepadAxis: {
+				axis: 0,
+				direction: 1
+			}
+		},
+		SOFT_DROP => {
+			keyboardInput: Down,
+			gamepadButton: DPAD_DOWN,
+			gamepadAxis: {
+				axis: 1,
+				direction: 1
+			}
+		},
+		HARD_DROP => {
+			keyboardInput: Up,
+			gamepadButton: DPAD_UP,
+			gamepadAxis: {
+				axis: 1,
+				direction: -1
+			}
+		},
+		ROTATE_LEFT => {
+			keyboardInput: D,
+			gamepadButton: CROSS,
+			gamepadAxis: {
+				axis: null,
+				direction: null
+			}
+		},
+		ROTATE_RIGHT => {
+			keyboardInput: F,
+			gamepadButton: CIRCLE,
+			gamepadAxis: {
+				axis: null,
+				direction: null
+			}
+		},
+		TOGGLE_EDIT_MODE => {
+			keyboardInput: Q,
+			gamepadButton: SHARE,
+			gamepadAxis: {
+				axis: null,
+				direction: null
+			}
+		},
+		EDIT_LEFT => {
+			keyboardInput: Left,
+			gamepadButton: DPAD_LEFT,
+			gamepadAxis: {axis: 0, direction: -1}
+		},
+		EDIT_RIGHT => {
+			keyboardInput: Right,
+			gamepadButton: DPAD_RIGHT,
+			gamepadAxis: {axis: 0, direction: 1}
+		},
+		EDIT_DOWN => {
+			keyboardInput: Down,
+			gamepadButton: DPAD_DOWN,
+			gamepadAxis: {axis: 1, direction: 1},
+		},
+		EDIT_UP => {
+			keyboardInput: Up,
+			gamepadButton: DPAD_UP,
+			gamepadAxis: {axis: 1, direction: -1}
+		},
+		EDIT_CLEAR => {
+			keyboardInput: D,
+			gamepadButton: CROSS,
+			gamepadAxis: {
+				axis: null,
+				direction: null
+			}
+		},
+		EDIT_SET => {
+			keyboardInput: F,
+			gamepadButton: CIRCLE,
+			gamepadAxis: {
+				axis: null,
+				direction: null
+			}
+		},
+		PREVIOUS_STEP => {
+			keyboardInput: Y,
+			gamepadButton: SQUARE,
+			gamepadAxis: {
+				axis: null,
+				direction: null
+			}
+		},
+		NEXT_STEP => {
+			keyboardInput: X,
+			gamepadButton: TRIANGLE,
+			gamepadAxis: {
+				axis: null,
+				direction: null
+			}
+		},
+		PREVIOUS_COLOR => {
+			keyboardInput: C,
+			gamepadButton: L2,
+			gamepadAxis: {
+				axis: null,
+				direction: null
+			}
+		},
+		NEXT_COLOR => {
+			keyboardInput: V,
+			gamepadButton: R2,
+			gamepadAxis: {
+				axis: null,
+				direction: null
+			}
+		},
+		PREVIOUS_GROUP => {
+			keyboardInput: Y,
+			gamepadButton: SQUARE,
+			gamepadAxis: {
+				axis: null,
+				direction: null
+			}
+		},
+		NEXT_GROUP => {
+			keyboardInput: X,
+			gamepadButton: TRIANGLE,
+			gamepadAxis: {
+				axis: null,
+				direction: null
+			}
+		},
+		TOGGLE_MARKERS => {
+			keyboardInput: B,
+			gamepadButton: R1,
+			gamepadAxis: {
+				axis: null,
+				direction: null
+			}
+		}
+	];
 
-private typedef MenuInputs = {
-	pause: InputMapping,
-	left: InputMapping,
-	right: InputMapping,
-	down: InputMapping,
-	up: InputMapping,
-	back: InputMapping,
-	confirm: InputMapping
-};
+	static inline final DEADZONE_DEFAULT = 0.5;
+	static inline final GAMEPAD_BRAND_DEFAULT = GamepadBrand.DS4;
 
-private typedef GameInputs = {
-	shiftLeft: InputMapping,
-	shiftRight: InputMapping,
-	softDrop: InputMapping,
-	hardDrop: InputMapping,
-	rotateLeft: InputMapping,
-	rotateRight: InputMapping
-};
+	final updateListeners: Array<Void->Void>;
 
-private typedef TrainingInputs = {
-	toggleEditMode: InputMapping,
-	previousStep: InputMapping,
-	nextStep: InputMapping,
-	previousColor: InputMapping,
-	nextColor: InputMapping,
-	toggleMarkers: InputMapping
-};
+	public var mappings(default, null): Map<Action, InputMapping>;
+	public var deadzone: Float;
+	public var gamepadBrand: GamepadBrand;
+
+	public function new(overrides: Map<InputSettingsKey, Any>) {
+		updateListeners = [];
+
+		setDefaults();
+
+		try {
+			for (k => v in cast(overrides, Map<Dynamic, Dynamic>)) {
+				try {
+					switch (cast(k, InputSettingsKey)) {
+						case MAPPINGS:
+							for (kk => vv in cast(v, Map<Dynamic, Dynamic>)) {
+								mappings[cast(kk, Action)] = InputMapping.fromString(cast(vv, String));
+							}
+						case DEADZONE:
+							deadzone = cast(v, Float);
+						case GAMEPAD_BRAND:
+							gamepadBrand = cast(v, GamepadBrand);
+					}
+				} catch (_) {
+					continue;
+				}
+			}
+		} catch (_) {}
+	}
+
+	public function exportOverrides() {
+		final overrides = new StringMap<Any>();
+		var wereOverrides = false;
+
+		final mappingOverrides = new Map<Action, String>();
+		var wereMappingOverrides = false;
+
+		for (k => v in mappings) {
+			if (v.isNotEqual(MAPPINGS_DEFAULTS[k])) {
+				mappingOverrides.set(k, v.asString());
+				wereMappingOverrides = true;
+			}
+		}
+
+		if (wereMappingOverrides) {
+			overrides.set(MAPPINGS, mappingOverrides);
+			wereOverrides = true;
+		}
+
+		if (deadzone != DEADZONE_DEFAULT) {
+			overrides.set(DEADZONE, deadzone);
+			wereOverrides = true;
+		}
+
+		if (gamepadBrand != GAMEPAD_BRAND_DEFAULT) {
+			overrides.set(GAMEPAD_BRAND, gamepadBrand);
+			wereOverrides = true;
+		}
+
+		return wereOverrides ? overrides : null;
+	}
+
+	public function addUpdateListener(callback: Void->Void) {
+		updateListeners.push(callback);
+
+		callback();
+	}
+
+	public function notifyListeners() {
+		for (f in updateListeners) {
+			f();
+		}
+	}
+
+	public function setDefaults() {
+		mappings = MAPPINGS_DEFAULTS.copy();
+
+		deadzone = DEADZONE_DEFAULT;
+		gamepadBrand = GAMEPAD_BRAND_DEFAULT;
+
+		notifyListeners();
+	}
+
+	public function getButtonSprite(action: Action) {
+		return BUTTON_SPRITE_COORDINATES[gamepadBrand][mappings[action].gamepadButton];
+	}
+
+	public function getAxisSprite(action: Action) {
+		return AXIS_SPRITE_COORDINATES[gamepadBrand][mappings[action].gamepadAxis.hashCode()];
+	}
+}

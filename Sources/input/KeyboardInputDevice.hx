@@ -1,10 +1,10 @@
 package input;
 
-import game.actions.ActionTitles.ACTION_TITLES;
+import utils.Utils;
+import game.actions.ActionData.ACTION_DATA;
 import input.KeyCodeToString.KEY_CODE_TO_STRING;
 import kha.graphics2.Graphics;
 import ui.ControlDisplay;
-import game.actions.ActionInputTypes;
 import game.actions.Action;
 import kha.input.KeyCode;
 import save_data.InputSettings;
@@ -32,13 +32,12 @@ class KeyboardInputDevice extends InputDevice {
 		anyKeyCounter++;
 		isAnyKeyDown = true;
 
+		AnyInputDevice.lastDeviceID = AnyInputDevice.KEYBOARD_ID;
+
 		if (!keysToActions.exists(key))
 			return;
 
 		for (action in keysToActions[key]) {
-			if (counters.exists(action))
-				continue;
-
 			counters[action] = 0;
 		}
 	}
@@ -58,30 +57,37 @@ class KeyboardInputDevice extends InputDevice {
 		}
 	}
 
-	function rebindListener(action: Action, key: KeyCode) {
-		final original = inputSettings.getMapping(action);
+	function changeKeybind(action: Action, key: Null<KeyCode>) {
+		final original = inputSettings.mappings[action];
 
-		inputSettings.setMapping(action, {
+		inputSettings.mappings[action] = ({
 			keyboardInput: key,
-			gamepadInput: original.gamepadInput
-		});
+			gamepadButton: original.gamepadButton,
+			gamepadAxis: original.gamepadAxis
+		} : InputMapping);
+	}
 
+	inline function rebindListener(action: Action, key: KeyCode) {
+		changeKeybind(action, key);
 		finishRebind();
 	}
 
 	override function buildActions() {
+		counters = [];
 		actions = [];
 		keysToActions = [];
 
-		for (action in Type.allEnums(Action)) {
-			final kbInput = inputSettings.getMapping(action).keyboardInput;
+		for (action in ACTION_DATA.keys()) {
+			final kbInput = inputSettings.mappings[action].keyboardInput;
 
-			if (keysToActions[kbInput] == null)
-				keysToActions[kbInput] = [];
+			if (kbInput != null) {
+				if (keysToActions[kbInput] == null)
+					keysToActions[kbInput] = [];
 
-			keysToActions[kbInput].push(action);
+				keysToActions[kbInput].push(action);
+			}
 
-			switch (ACTION_INPUT_TYPES[action]) {
+			switch (ACTION_DATA[action].inputType) {
 				case HOLD:
 					actions[action] = holdActionHandler;
 				case PRESS:
@@ -110,6 +116,18 @@ class KeyboardInputDevice extends InputDevice {
 		}
 	}
 
+	override function unbind(action: Action) {
+		changeKeybind(action, null);
+
+		super.unbind(action);
+	}
+
+	override function bindDefault(action: Action) {
+		changeKeybind(action, InputSettings.MAPPINGS_DEFAULTS[action].keyboardInput);
+
+		super.bindDefault(action);
+	}
+
 	override function rebind(action: Action) {
 		super.rebind(action);
 
@@ -124,38 +142,45 @@ class KeyboardInputDevice extends InputDevice {
 	override function renderBinding(g: Graphics, x: Float, y: Float, action: Action) {
 		super.renderBinding(g, x, y, action);
 
-		final title = ACTION_TITLES[action];
+		final title = ACTION_DATA[action].title;
 
 		if (action == latestRebindAction && isRebinding) {
-			g.drawString('Press any key for [ $title ]', x, y);
+			g.drawString('[ Press any key for $title ]', x, y);
 
 			return;
 		}
 
-		g.drawString('$title: ${KEY_CODE_TO_STRING[inputSettings.getMapping(action).keyboardInput]}', x, y);
+		final kbInput = inputSettings.mappings[action].keyboardInput;
+		final binding = kbInput == null ? "[ UNBOUND ]" : KEY_CODE_TO_STRING[kbInput];
+
+		g.drawString('$title: $binding', x, y);
 	}
 
-	override function renderControls(g: Graphics, x: Float, y: Float, controls: Array<ControlDisplay>) {
-		super.renderControls(g, x, y, controls);
+	override function renderControls(g: Graphics, padding: Float, controls: Array<ControlDisplay>) {
+		var str = "";
 
 		for (d in controls) {
-			var str = "";
-
 			for (action in d.actions) {
-				str += '${KEY_CODE_TO_STRING[inputSettings.getMapping(action).keyboardInput]}/';
+				final mapping = inputSettings.mappings[action].keyboardInput;
+
+				if (mapping != null)
+					str += '${KEY_CODE_TO_STRING[mapping]}/';
 			}
 
 			str = str.substring(0, str.length - 1);
 
 			// Hackerman but it beats having to calculate with scaling
 			str += ' : ${d.description}    ';
-
-			final strWidth = font.width(controlsFontSize, str);
-
-			g.drawString(str, x, y);
-
-			x += strWidth;
 		}
+
+		final strWidth = g.font.width(g.fontSize, str);
+		final paddedScreenWidth = ScaleManager.width - padding * 2;
+
+		Utils.shadowDrawString(g, 3, Black, White, str, padding
+			- getScrollX(strWidth, paddedScreenWidth),
+			ScaleManager.height
+			- padding
+			- g.font.height(g.fontSize));
 	}
 
 	public function resetIsAnyKeyDown() {

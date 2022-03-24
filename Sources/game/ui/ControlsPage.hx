@@ -10,11 +10,5 @@ class ControlsPage extends InputLimitedListPage {
 			widgetBuilder: (menu) -> opts.actions.map((action) -> (new InputWidget(action) : IListWidget)),
 			inputDevice: opts.inputDevice
 		});
-
-		controlDisplays = [
-			{actions: [UP, DOWN], description: "Select List Entry"},
-			{actions: [BACK], description: "Back"},
-			{actions: [CONFIRM], description: "Rebind"}
-		];
 	}
 }

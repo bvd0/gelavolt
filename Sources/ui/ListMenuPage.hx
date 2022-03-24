@@ -1,15 +1,16 @@
 package ui;
 
+import utils.Utils;
 import kha.Assets;
 import kha.Font;
 import kha.graphics2.Graphics;
 
 class ListMenuPage implements IMenuPage {
 	static inline final DESC_FONT_SIZE = 48;
-	static inline final MAX_WIDGETS_PER_VIEW = 10;
+	static inline final MAX_WIDGETS_PER_VIEW = 7;
 	static inline final WIDGET_BOTTOM_PADDING = 16;
 	static final DEFAULT_CONTROL_DISPLAYS: Array<ControlDisplay> = [
-		{actions: [UP, DOWN], description: "Select"},
+		{actions: [MENU_UP, MENU_DOWN], description: "Select"},
 		{actions: [BACK], description: "Back"},
 	];
 
@@ -22,6 +23,7 @@ class ListMenuPage implements IMenuPage {
 
 	var descFontSize: Int;
 	var descFontHeight: Float;
+	var scrollArrowSize: Float;
 
 	var widgets: Array<IListWidget>;
 	var widgetIndex: Int;
@@ -43,11 +45,16 @@ class ListMenuPage implements IMenuPage {
 	}
 
 	function onSelect() {
+		widgetIndex = Utils.intClamp(0, widgetIndex, widgets.length - 1);
 		controlDisplays = DEFAULT_CONTROL_DISPLAYS.concat(widgets[widgetIndex].controlDisplays);
 	}
 
 	function popPage() {
 		menu.popPage();
+	}
+
+	function renderArrow(g: Graphics, x: Float, y: Float, spriteX: Int) {
+		g.drawScaledSubImage(Assets.images.Arrows, spriteX, 0, 64, 64, x, y, scrollArrowSize, scrollArrowSize);
 	}
 
 	public function onResize() {
@@ -57,6 +64,7 @@ class ListMenuPage implements IMenuPage {
 
 		descFontSize = Std.int(DESC_FONT_SIZE * smallerScale);
 		descFontHeight = font.height(descFontSize);
+		scrollArrowSize = 64 * ScaleManager.smallerScale;
 
 		for (w in widgets) {
 			w.onResize();
@@ -72,7 +80,7 @@ class ListMenuPage implements IMenuPage {
 			}
 		} else {
 			widgetIndex = widgets.length - 1;
-			minIndex = Std.int(Math.max(0, widgetIndex - MAX_WIDGETS_PER_VIEW));
+			minIndex = Std.int(Math.max(0, widgets.length - MAX_WIDGETS_PER_VIEW));
 		}
 
 		onSelect();
@@ -108,9 +116,9 @@ class ListMenuPage implements IMenuPage {
 	public function update() {
 		final inputDevice = menu.inputDevice;
 
-		if (inputDevice.getAction(UP)) {
+		if (inputDevice.getAction(MENU_UP)) {
 			moveUp();
-		} else if (inputDevice.getAction(DOWN)) {
+		} else if (inputDevice.getAction(MENU_DOWN)) {
 			moveDown();
 		}
 
@@ -122,6 +130,15 @@ class ListMenuPage implements IMenuPage {
 	}
 
 	public function render(g: Graphics, x: Float, y: Float) {
+		g.font = font;
+		g.fontSize = descFontSize;
+
+		if (minIndex > 0) {
+			renderArrow(g, x, y, 64);
+		}
+
+		var drawY = y + scrollArrowSize;
+
 		for (i in 0...MAX_WIDGETS_PER_VIEW) {
 			final index = minIndex + i;
 			final widget = widgets[index];
@@ -129,18 +146,20 @@ class ListMenuPage implements IMenuPage {
 			if (widget == null)
 				break;
 
-			final widgetY = y + (widget.height + widgetBottomPadding) * i;
-
-			widget.render(g, x, widgetY, index == widgetIndex);
+			widget.render(g, x, drawY, index == widgetIndex);
+			drawY += widget.height + widgetBottomPadding;
 		}
 
 		g.font = font;
 		g.fontSize = descFontSize;
 
+		if (minIndex + MAX_WIDGETS_PER_VIEW < widgets.length) {
+			renderArrow(g, x, drawY, 0);
+		}
+
 		final desc = widgets[widgetIndex].description;
 
-		final padding = menu.padding;
-		final rightBorder = ScaleManager.width - padding;
+		final rightBorder = ScaleManager.width - menu.padding;
 
 		for (i in 0...desc.length) {
 			final row = desc[i];
