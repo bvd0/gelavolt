@@ -1,16 +1,19 @@
 package game.boardstates;
 
+import auto_attack.AutoAttackManager;
 import save_data.TrainingSettings;
 
 class TrainingBoardState extends EndlessBoardState {
 	final trainingSettings: TrainingSettings;
 	final infoState: TrainingInfoBoardState;
+	final autoAttackManager: AutoAttackManager;
 
 	public function new(opts: TrainingBoardStateOptions) {
 		super(opts);
 
 		trainingSettings = opts.trainingSettings;
 		infoState = opts.infoState;
+		autoAttackManager = opts.autoAttackManager;
 	}
 
 	override function lockGroup() {
@@ -18,6 +21,8 @@ class TrainingBoardState extends EndlessBoardState {
 
 		infoState.loadChain();
 		infoState.startSplitTimer();
+		infoState.incrementGroupCounter();
+		infoState.shouldUpdatePPST = false;
 	}
 
 	override function afterDrop() {
@@ -29,23 +34,33 @@ class TrainingBoardState extends EndlessBoardState {
 	}
 
 	override function beforeEnd() {
-		if (!trainingSettings.autoAttack)
+		if (autoAttackManager.isPaused)
 			garbageManager.clear();
 	}
 
 	override function afterEnd() {
 		infoState.saveSplitCategory();
+		infoState.shouldUpdatePPST = true;
 	}
 
 	override function onLose() {
 		super.onLose();
 
 		infoState.resetCurrentSplitStatistics();
+		autoAttackManager.reset();
 	}
 
 	// Makes regenerateQueue public
 	override public function regenerateQueue() {
-		super.regenerateQueue();
+		randomizer.generatePools(TSU);
+
+		final data = randomizer.createQueueData(Dropsets.CLASSICAL);
+
+		for (i in 0...trainingSettings.keepGroupCount) {
+			data[i] = queue.get(i);
+		}
+
+		queue.load(data);
 	}
 
 	public function getField() {
@@ -71,21 +86,21 @@ class TrainingBoardState extends EndlessBoardState {
 	}
 
 	public function previousGroup() {
-		// Must call twice since initSpawningState() calls next()
-		queue.previous();
-		queue.previous();
+		if (chainSim.viewIndex < 3)
+			return;
 
 		chainSim.rewindToPreviousEndStep();
-		copyFromSnapshot();
 
-		geloGroup.isVisible = false;
-
-		initSimStepState();
+		resume();
 	}
 
 	public function nextGroup() {
-		geloGroup.isVisible = false;
+		chainSim.jumpToBeginStep();
+		copyFromSnapshot();
 
-		lockGroup();
+		geloGroup.isVisible = false;
+		geloGroup.isShadowVisible = false;
+
+		beginChainSimulation();
 	}
 }

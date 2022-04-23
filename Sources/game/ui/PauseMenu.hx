@@ -1,12 +1,10 @@
 package game.ui;
 
-import main_menu.ui.MainMenuPage;
+import main_menu.MainMenuScreen;
+import Screen.GlobalScreenSwitcher;
+import ui.AreYouSureSubPageWidget;
 import main_menu.ui.OptionsPage;
-import ui.YesNoWidget;
 import game.mediators.PauseMediator;
-import save_data.SaveManager;
-import save_data.PrefsSettings;
-import ui.NumberRangeWidget;
 import ui.IListWidget;
 import ui.SubPageWidget;
 import ui.ButtonWidget;
@@ -18,19 +16,22 @@ import kha.Window;
 #end
 
 class PauseMenu extends Menu {
-	final prefsSettings: PrefsSettings;
 	final pauseMediator: PauseMediator;
 
 	public var updateGameState(default, null) = false;
 
 	public function new(opts: PauseMenuOptions) {
-		prefsSettings = opts.prefsSettings;
 		pauseMediator = opts.pauseMediator;
 
-		super(new ListMenuPage({
-			header: "Paused",
-			widgetBuilder: generateInitalPage
-		}));
+		super({
+			prefsSettings: opts.prefsSettings,
+			positionFactor: 0,
+			widthFactor: 1,
+			initialPage: new ListMenuPage({
+				header: "Paused",
+				widgetBuilder: generateInitalPage
+			})
+		});
 	}
 
 	function generateInitalPage(menu: Menu): Array<IListWidget> {
@@ -45,11 +46,12 @@ class PauseMenu extends Menu {
 				description: ["Change Various Options and Settings"],
 				subPage: new OptionsPage(prefsSettings)
 			}),
-			new ButtonWidget({
-				title: "Show Main Menu",
-				description: ["Display The Main Menu"],
+			new AreYouSureSubPageWidget({
+				title: "Exit To Main Menu",
+				description: ["Return To The Main Menu"],
+				content: "Return To The Main Menu?",
 				callback: () -> {
-					pushPage(new MainMenuPage(prefsSettings));
+					GlobalScreenSwitcher.switchScreen(new MainMenuScreen());
 				}
 			}),
 			#if sys
@@ -70,7 +72,14 @@ class PauseMenu extends Menu {
 		if (pages.isEmpty()) {
 			pages.add(poppedPage);
 			pauseMediator.resume();
+
+			return;
 		}
+
+		final firstPage = pages.first();
+
+		firstPage.onShow(this);
+		firstPage.onResize();
 	}
 
 	override function update() {
@@ -82,9 +91,11 @@ class PauseMenu extends Menu {
 	}
 
 	override function render(g: Graphics, alpha: Float) {
+		final scr = ScaleManager.screen;
+
 		g.pushOpacity(0.90);
 		g.color = Black;
-		g.fillRect(0, 0, ScaleManager.width, ScaleManager.height);
+		g.fillRect(0, 0, scr.width, scr.height);
 		g.color = White;
 		g.popOpacity();
 

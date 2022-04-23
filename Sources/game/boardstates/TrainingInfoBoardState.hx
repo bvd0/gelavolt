@@ -1,19 +1,16 @@
 package game.boardstates;
 
+import auto_attack.AutoAttackManager;
+import save_data.PrefsSettings;
 import game.garbage.IGarbageManager;
 import game.rules.Rule;
 import utils.Utils;
-import game.fields.Field;
 import game.rules.MarginTimeManager;
-import game.ChainCounter;
-import game.gelos.GeloColor;
-import kha.math.Random;
 import save_data.TrainingSettings;
 import game.garbage.trays.GarbageTray;
 import game.score.ScoreManager;
 import game.simulation.ILinkInfoBuilder;
 import kha.Color;
-import game.garbage.GarbageManager;
 import game.geometries.BoardGeometries;
 import game.simulation.PopSimStep;
 import game.simulation.ChainSimulator;
@@ -31,16 +28,18 @@ class TrainingInfoBoardState implements IBoardState {
 	static inline final CARD_FONT_SIZE = 32;
 	static inline final CARD_SIZE = 512;
 
+	public static inline final GAME_INFO_X = -64;
+
 	final geometries: BoardGeometries;
 	final marginManager: MarginTimeManager;
 	final rule: Rule;
-	final rng: Random;
 	final linkBuilder: ILinkInfoBuilder;
 	final trainingSettings: TrainingSettings;
 	final chainAdvantageDisplay: GarbageTray;
 	final afterCounterDisplay: GarbageTray;
-	final autoChainCounter: ChainCounter;
 	final garbageManager: IGarbageManager;
+	final prefsSettings: PrefsSettings;
+	final autoAttackManager: AutoAttackManager;
 
 	final playerScoreManager: ScoreManager;
 	final playerChainSim: ChainSimulator;
@@ -64,6 +63,9 @@ class TrainingInfoBoardState implements IBoardState {
 	var toCounterChain: Int;
 	var counterDifference: Int;
 
+	var groupCounter: Int;
+	var ppsT: Int;
+
 	var splitT: Int;
 
 	var currentGreatSplits: Int;
@@ -79,26 +81,21 @@ class TrainingInfoBoardState implements IBoardState {
 	var updateSplitT: Bool;
 	var showSteps: Bool;
 
-	var autoAttackState: AutoAttackState;
-	var autoAttackT: Int;
-	var autoAttackChain: Int;
-	var autoAttackMaxChain: Int;
-	var autoAttackGarbage: Int;
-	var autoAttackRemainder: Float;
-
 	var viewMin: Int;
+
+	public var shouldUpdatePPST: Bool;
 
 	public function new(opts: TrainingInfoBoardStateOptions) {
 		geometries = opts.geometries;
 		marginManager = opts.marginManager;
 		rule = opts.rule;
-		rng = opts.rng;
 		linkBuilder = opts.linkBuilder;
 		trainingSettings = opts.trainingSettings;
 		chainAdvantageDisplay = opts.chainAdvantageDisplay;
 		afterCounterDisplay = opts.afterCounterDisplay;
-		autoChainCounter = opts.autoChainCounter;
 		garbageManager = opts.garbageManager;
+		prefsSettings = opts.prefsSettings;
+		autoAttackManager = opts.autoAttackManager;
 
 		playerScoreManager = opts.playerScoreManager;
 		playerChainSim = opts.playerChainSim;
@@ -121,6 +118,9 @@ class TrainingInfoBoardState implements IBoardState {
 		toCounterChain = 1;
 		counterDifference = 0;
 
+		groupCounter = 0;
+		ppsT = 0;
+
 		splitT = 0;
 
 		resetCurrentSplitStatistics();
@@ -133,9 +133,9 @@ class TrainingInfoBoardState implements IBoardState {
 		updateSplitT = false;
 		showSteps = false;
 
-		resetAutoAttackWaitingState();
-
 		viewMin = 0;
+
+		shouldUpdatePPST = true;
 	}
 
 	function gameRow(index: Int) {
@@ -151,56 +151,6 @@ class TrainingInfoBoardState implements IBoardState {
 		return SLOW;
 	}
 
-	function updateWaitingAutoAttack() {
-		if (autoAttackT == 0) {
-			garbageManager.clear();
-			autoAttackState = SENDING;
-			autoAttackT = 0;
-			autoAttackChain = 0;
-			autoAttackMaxChain = rng.GetIn(trainingSettings.minAttackChain, trainingSettings.maxAttackChain);
-		} else {
-			--autoAttackT;
-		}
-	}
-
-	function updateSendingAutoAttack() {
-		if (autoAttackT == 0) {
-			final clearsByColor = [COLOR1 => 0, COLOR2 => 0, COLOR3 => 0, COLOR4 => 0, COLOR5 => 0];
-
-			final colorCount = rng.GetIn(trainingSettings.minAttackColors, trainingSettings.maxAttackColors);
-
-			for (i in 0...colorCount) {
-				clearsByColor[i] = rule.popCount + rng.GetIn(trainingSettings.minAttackGroupDiff, trainingSettings.maxAttackGroupDiff);
-			}
-
-			final link = linkBuilder.build({
-				chain: ++autoAttackChain,
-				clearsByColor: clearsByColor,
-				totalGarbage: autoAttackGarbage,
-				garbageRemainder: autoAttackRemainder,
-				dropBonus: 0,
-				sendsAllClearBonus: false
-			});
-
-			autoAttackGarbage = link.accumulatedGarbage;
-			autoAttackRemainder = link.garbageRemainder;
-
-			garbageManager.sendGarbage(link.garbage, [{x: 0, y: Std.int(gameRow(20)), color: COLOR1}]);
-
-			autoAttackT = 80;
-
-			autoChainCounter.startAnimation(autoAttackChain, {x: 112, y: gameRow(20)}, link.isPowerful);
-
-			if (autoAttackChain == autoAttackMaxChain) {
-				garbageManager.confirmGarbage(autoAttackGarbage);
-
-				resetAutoAttackWaitingState();
-			}
-		} else {
-			--autoAttackT;
-		}
-	}
-
 	function renderSplitPercentage(g: Graphics, x: Float, y: Float, color: Color, value: Int) {
 		shadowDrawString(g, 3, Black, color, '$value% '.lpad(" ", 5), x, y);
 	}
@@ -208,19 +158,19 @@ class TrainingInfoBoardState implements IBoardState {
 	function renderSplitStatistics(g: Graphics, title: String, y: Float, splitCounter: Int, great: Int, okay: Int, slow: Int) {
 		final titleWidth = font.width(TITLE_FONT_SIZE, title);
 
-		shadowDrawString(g, 3, Black, White, title, 0, y);
+		shadowDrawString(g, 3, Black, White, title, GAME_INFO_X, y);
 
 		if (splitCounter == 0) {
-			renderSplitPercentage(g, titleWidth, y, Green, 0);
-			renderSplitPercentage(g, titleWidth + splitPercentageWidth, y, Yellow, 0);
-			renderSplitPercentage(g, titleWidth + splitPercentageWidth * 2, y, Red, 0);
+			renderSplitPercentage(g, GAME_INFO_X + titleWidth, y, Green, 0);
+			renderSplitPercentage(g, GAME_INFO_X + titleWidth + splitPercentageWidth, y, Yellow, 0);
+			renderSplitPercentage(g, GAME_INFO_X + titleWidth + splitPercentageWidth * 2, y, Red, 0);
 
 			return;
 		}
 
-		renderSplitPercentage(g, titleWidth, y, Green, Math.round(great / splitCounter * 100));
-		renderSplitPercentage(g, titleWidth + splitPercentageWidth, y, Yellow, Math.round(okay / splitCounter * 100));
-		renderSplitPercentage(g, titleWidth + splitPercentageWidth * 2, y, Red, Math.round(slow / splitCounter * 100));
+		renderSplitPercentage(g, GAME_INFO_X + titleWidth, y, Green, Math.round(great / splitCounter * 100));
+		renderSplitPercentage(g, GAME_INFO_X + titleWidth + splitPercentageWidth, y, Yellow, Math.round(okay / splitCounter * 100));
+		renderSplitPercentage(g, GAME_INFO_X + titleWidth + splitPercentageWidth * 2, y, Red, Math.round(slow / splitCounter * 100));
 
 		g.color = White;
 	}
@@ -228,16 +178,16 @@ class TrainingInfoBoardState implements IBoardState {
 	function renderGameInfo(g: Graphics, alpha: Float) {
 		g.fontSize = TITLE_FONT_SIZE;
 
-		shadowDrawString(g, 3, Black, White, 'Chain: $chain / $chainLength', 0, gameRow(-3));
+		shadowDrawString(g, 3, Black, White, 'Chain: $chain / $chainLength', GAME_INFO_X, gameRow(-3));
+		shadowDrawString(g, 3, Black, White, 'Remainder: $linkRemainder', GAME_INFO_X, gameRow(0));
+		shadowDrawString(g, 3, Black, White, 'Damage: $chainDamage / $totalDamage', GAME_INFO_X, gameRow(1));
 
-		shadowDrawString(g, 3, Black, White, 'Remainder: $linkRemainder', 0, gameRow(0));
-
-		shadowDrawString(g, 3, Black, White, 'Damage: $chainDamage / $totalDamage', 0, gameRow(1));
+		shadowDrawString(g, 3, Black, White, 'Speed (PPS): ${Utils.limitDecimals(groupCounter / (ppsT / 60), 2)}', GAME_INFO_X, gameRow(3));
 
 		// Font is not monospace ;(
-		renderSplitStatistics(g, "Splits (ALL):  ", gameRow(3), overallSplitCounter, overallGreatSplits, overallOkaySplits, overallSlowSplits);
+		renderSplitStatistics(g, "Splits (ALL):  ", gameRow(4), overallSplitCounter, overallGreatSplits, overallOkaySplits, overallSlowSplits);
 
-		renderSplitStatistics(g, "Splits (NOW): ", gameRow(4), currentSplitCounter, currentGreatSplits, currentOkaySplits, currentSlowSplits);
+		renderSplitStatistics(g, "Splits (NOW): ", gameRow(5), currentSplitCounter, currentGreatSplits, currentOkaySplits, currentSlowSplits);
 
 		final splitColor = switch (getSplitCategory()) {
 			case GREAT:
@@ -248,38 +198,39 @@ class TrainingInfoBoardState implements IBoardState {
 				g.color = Red;
 		}
 
-		shadowDrawString(g, 3, Black, splitColor, '$splitT'.lpad(" ", 3), 0, gameRow(5));
-		g.fillRect(64, gameRow(5), splitT * 4, 32);
+		shadowDrawString(g, 3, Black, splitColor, '$splitT'.lpad(" ", 3), GAME_INFO_X, gameRow(6));
+		g.fillRect(0, gameRow(6), splitT * 4, 32);
 
 		g.color = White;
 
-		shadowDrawString(g, 3, Black, White, 'Chain Standard Advantage: $chainAdvantage', 0, gameRow(8));
+		shadowDrawString(g, 3, Black, White, 'Chain Standard Advantage: $chainAdvantage', GAME_INFO_X, gameRow(9));
 
-		chainAdvantageDisplay.render(g, 0, gameRow(9), alpha);
+		chainAdvantageDisplay.render(g, GAME_INFO_X, gameRow(10), alpha);
 
-		shadowDrawString(g, 3, Black, White, 'To Counter: $toCounterChain ($counterDifference remains)', 0, gameRow(11));
+		shadowDrawString(g, 3, Black, White, 'To Counter: $toCounterChain ($counterDifference remains)', GAME_INFO_X, gameRow(12));
 
-		afterCounterDisplay.render(g, 0, gameRow(12), alpha);
+		afterCounterDisplay.render(g, GAME_INFO_X, gameRow(13), alpha);
 
 		final targetPoints = marginManager.targetPoints;
 
-		shadowDrawString(g, 3, Black, White, 'Target Points: $targetPoints', 0, gameRow(14));
-		shadowDrawString(g, 3, Black, White, 'Margin Time: ${Std.int(marginManager.marginTime / 60)}', 0, gameRow(15));
+		shadowDrawString(g, 3, Black, White, 'Target Pts (Margin T): $targetPoints (${Std.int(marginManager.marginTime / 60)})', GAME_INFO_X, gameRow(15));
 
 		final dropBonus = Std.int(playerScoreManager.dropBonus);
 
-		shadowDrawString(g, 3, Black, White, 'Drop bonus: $dropBonus (${Std.int(dropBonus / targetPoints)} garbo)', 0, gameRow(16));
+		shadowDrawString(g, 3, Black, White, 'Drop bonus: $dropBonus (${Std.int(dropBonus / targetPoints)} garbo)', GAME_INFO_X, gameRow(16));
 
-		if (trainingSettings.autoAttack) {
-			final autoAttackString = switch (autoAttackState) {
-				case WAITING: 'Auto-Attack WAITING: ${Std.int(autoAttackT / 60 + 1)}';
-				case SENDING: 'Auto-Attack SENDING: $autoAttackMaxChain-CHAIN!';
+		if (!autoAttackManager.isPaused) {
+			final autoAttackString = switch (autoAttackManager.state) {
+				case WAITING: 'Auto-Attack WAITING: ${Std.int(autoAttackManager.timer / 60 + 1)}';
+				case SENDING: 'Auto-Attack SENDING: ${autoAttackManager.chain}-CHAIN!';
 			}
 
-			shadowDrawString(g, 3, Black, White, autoAttackString, 0, gameRow(17));
+			shadowDrawString(g, 3, Black, White, autoAttackString, GAME_INFO_X, gameRow(18));
 		} else {
-			shadowDrawString(g, 3, Black, White, "Auto-Attack DISABLED", 0, gameRow(17));
+			shadowDrawString(g, 3, Black, White, "Auto-Attack DISABLED", GAME_INFO_X, gameRow(18));
 		}
+
+		autoAttackManager.render(g, alpha);
 	}
 
 	function renderEditInfo(g: Graphics, alpha: Float) {
@@ -309,18 +260,17 @@ class TrainingInfoBoardState implements IBoardState {
 		shadowDrawString(g, 3, Black, White, '${viewIndex + 1} / ${steps.length}', 0, BoardGeometries.HEIGHT);
 	}
 
-	public function resetAutoAttackWaitingState() {
-		autoAttackState = WAITING;
-		autoAttackT = rng.GetIn(trainingSettings.minAttackTime, trainingSettings.maxAttackTime) * 60;
-		autoAttackGarbage = 0;
-		autoAttackRemainder = 0;
-	}
-
 	public function resetCurrentSplitStatistics() {
 		currentGreatSplits = 0;
 		currentOkaySplits = 0;
 		currentSlowSplits = 0;
 		currentSplitCounter = 0;
+
+		stopSplitTimer();
+	}
+
+	public inline function incrementGroupCounter() {
+		++groupCounter;
 	}
 
 	public function startSplitTimer() {
@@ -435,16 +385,11 @@ class TrainingInfoBoardState implements IBoardState {
 			splitT++;
 		}
 
-		if (trainingSettings.autoAttack && !showSteps) {
-			switch (autoAttackState) {
-				case WAITING:
-					updateWaitingAutoAttack();
-				case SENDING:
-					updateSendingAutoAttack();
-			}
+		if (shouldUpdatePPST) {
+			ppsT++;
 		}
 
-		autoChainCounter.update();
+		autoAttackManager.update();
 		garbageManager.update();
 	}
 
@@ -461,7 +406,6 @@ class TrainingInfoBoardState implements IBoardState {
 
 		final garbageTrayPos = geometries.garbageTray;
 
-		autoChainCounter.render(g, alpha);
 		garbageManager.render(g, garbageTrayPos.x, garbageTrayPos.y, alpha);
 	}
 }

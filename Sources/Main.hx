@@ -1,5 +1,6 @@
 package;
 
+import side_setup.VersusSideSetupScreen;
 import input.AnyInputDevice;
 import input.InputDevice;
 import game.screens.ReplayScreen;
@@ -67,7 +68,7 @@ class Main {
 	public static function main() {
 		#if kha_html5
 		window.onresize = () -> {
-			ScaleManager.resize(window.innerWidth, window.innerHeight);
+			ScaleManager.screen.resize(window.innerWidth, window.innerHeight);
 		};
 
 		setFullHTML5Canvas();
@@ -80,7 +81,7 @@ class Main {
 			framebuffer: {verticalSync: false}
 		}, function(_) {
 			#if cpp
-			Window.get(0).notifyOnResize(ScaleManager.resize);
+			Window.get(0).notifyOnResize(ScaleManager.screen.resize);
 			#end
 
 			// Just loading everything is ok for small projects
@@ -96,7 +97,7 @@ class Main {
 				Window.get(0).mode = SaveManager.graphics.fullscreen ? Fullscreen : Windowed;
 				#end
 
-				ScaleManager.resize(System.windowWidth(), System.windowHeight());
+				ScaleManager.screen.resize(System.windowWidth(), System.windowHeight());
 
 				GlobalScreenSwitcher.switchScreen(new MainMenuScreen());
 

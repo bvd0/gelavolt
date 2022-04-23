@@ -1,32 +1,38 @@
 package game.boardstates;
 
+import game.rules.MarginTimeManager;
 import save_data.IClearOnXModeContainer;
 import game.randomizers.Randomizer;
 
 class EndlessBoardState extends StandardBoardState {
 	final clearOnXModeContainer: IClearOnXModeContainer;
 	final randomizer: Randomizer;
+	final marginManager: MarginTimeManager;
 
 	public function new(opts: EndlessBoardStateOptions) {
 		super(opts);
 
 		clearOnXModeContainer = opts.clearOnXModeContainer;
 		randomizer = opts.randomizer;
+		marginManager = opts.marginManager;
 	}
 
-	override function onLose() {
+	// public for EndlessBoard
+	override public function onLose() {
 		eraseField();
 		garbageManager.clear();
+		marginManager.reset();
+		allClearManager.stopAnimation();
 
 		switch (clearOnXModeContainer.clearOnXMode) {
 			case CLEAR:
 			case RESTART:
 				queue.setIndex(0);
-				initSimStepState();
 			case NEW:
 				regenerateQueue();
-				initSimStepState();
 		}
+
+		initSimStepState();
 	}
 
 	function eraseField() {
