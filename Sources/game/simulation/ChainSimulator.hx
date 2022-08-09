@@ -1,8 +1,11 @@
 package game.simulation;
 
+import game.garbage.trays.IGarbageTray;
+import game.copying.ConstantCopyableArray;
+import game.copying.CopyableArray;
+import game.copying.ICopyFrom;
 import game.gelogroups.GeloGroupData;
 import game.rules.Rule;
-import game.garbage.trays.GarbageTray;
 import game.fields.Field;
 import game.fields.FieldPopInfo;
 import utils.Utils.intClamp;
@@ -16,34 +19,35 @@ private class SimOptions {
 	public final groupData: Null<GeloGroupData>;
 }
 
-class ChainSimulator {
-	final rule: Rule;
-	final linkBuilder: ILinkInfoBuilder;
-	final garbageDisplay: GarbageTray;
-	final accumulatedDisplay: GarbageTray;
+@:structInit
+@:build(game.Macros.buildOptionsClass(ChainSimulator))
+class ChainSimulatorOptions {}
 
-	public var stepIndex: Int;
+class ChainSimulator implements ICopyFrom {
+	@inject final rule: Rule;
+	@inject final linkBuilder: ILinkInfoBuilder;
+	@inject final garbageDisplay: IGarbageTray;
+	@inject final accumulatedDisplay: IGarbageTray;
 
-	public final steps: Array<SimulationStep> = [];
+	public final steps: CopyableArray<SimulationStep>;
 
-	public var latestChainCounter(default, null): Int;
-	public var latestGarbageCounter(default, null): Int;
-	public var viewIndex(default, null): Int;
+	@copy public var latestChainCounter(default, null): Int;
+	@copy public var latestGarbageCounter(default, null): Int;
+	@copy public var viewIndex(default, null): Int;
+	@copy public var stepIndex: Int;
 
 	public function new(opts: ChainSimulatorOptions) {
-		rule = opts.rule;
-		linkBuilder = opts.linkBuilder;
-		garbageDisplay = opts.garbageDisplay;
-		accumulatedDisplay = opts.accumulatedDisplay;
+		game.Macros.initFromOpts();
 
-		stepIndex = 0;
+		steps = new CopyableArray([]);
+
 		latestGarbageCounter = 0;
-
 		viewIndex = -1;
+		stepIndex = 0;
 	}
 
 	inline function pushStep(step: SimulationStep) {
-		steps[stepIndex++] = step;
+		steps.data[stepIndex++] = step;
 	}
 
 	function pop(field: Field) {
@@ -55,14 +59,15 @@ class ChainSimulator {
 
 				final firstInGroup = connected[0];
 
-				popInfo.beginners.push({
-					color: firstInGroup.gelo.color,
+				popInfo.beginners.data.push({
+					color: firstInGroup.color,
 					x: firstInGroup.x,
 					y: firstInGroup.y
 				});
 
 				for (c in connected) {
-					final gelo = c.gelo;
+					final gelo = field.getAtPoint(c);
+
 					if (!gelo.damage())
 						continue;
 
@@ -128,7 +133,7 @@ class ChainSimulator {
 				break;
 
 			final linkInfo = linkBuilder.build({
-				clearsByColor: popInfo.clearsByColor,
+				clearsByColor: popInfo.clearsByColor.data,
 				chain: ++latestChainCounter,
 				dropBonus: currentDropBonus,
 				garbageRemainder: lastRemainder,
@@ -182,13 +187,13 @@ class ChainSimulator {
 		pushStep(new EndSimStep({
 			chain: latestChainCounter,
 			fieldSnapshot: field.copy(),
-			links: links,
+			links: new ConstantCopyableArray(links),
 			endsInAllClear: allClear
 		}));
 	}
 
 	function view(delta: Int) {
-		viewIndex = intClamp(0, viewIndex + delta, steps.length - 1);
+		viewIndex = intClamp(0, viewIndex + delta, steps.data.length - 1);
 	}
 
 	public function simulate(opts: SimOptions) {
@@ -199,7 +204,7 @@ class ChainSimulator {
 	}
 
 	public function clear() {
-		steps.resize(0);
+		steps.data.resize(0);
 		stepIndex = 0;
 		viewIndex = -1;
 	}
@@ -229,8 +234,8 @@ class ChainSimulator {
 	public function jumpToBeginStep() {
 		var i = viewIndex;
 
-		while (++i < steps.length) {
-			if (steps[i].type == BEGIN) {
+		while (++i < steps.data.length) {
+			if (steps.data[i].type == BEGIN) {
 				viewIndex = i;
 				editViewed();
 
@@ -243,7 +248,7 @@ class ChainSimulator {
 		var i = viewIndex;
 
 		while (true) {
-			final step = steps[i];
+			final step = steps.data[i];
 
 			if (step.type == BEGIN)
 				return cast(step, BeginSimStep);
@@ -284,7 +289,7 @@ class ChainSimulator {
 	}
 
 	inline public function getViewedStep() {
-		return steps[viewIndex];
+		return steps.data[viewIndex];
 	}
 
 	public inline function viewNext() {
@@ -304,10 +309,10 @@ class ChainSimulator {
 	}
 
 	public function viewLast() {
-		viewIndex = steps.length - 1;
+		viewIndex = steps.data.length - 1;
 	}
 
 	public function reset() {
-		steps.resize(0);
+		steps.data.resize(0);
 	}
 }

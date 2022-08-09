@@ -5,17 +5,24 @@ import kha.Assets;
 import kha.Font;
 import kha.graphics2.Graphics;
 
+@:structInit
+@:build(game.Macros.buildOptionsClass(ListMenuPage))
+class ListMenuPageOptions {}
+
 class ListMenuPage implements IMenuPage {
 	static inline final DESC_FONT_SIZE = 48;
 	static inline final MAX_WIDGETS_PER_VIEW = 7;
 	static inline final WIDGET_BOTTOM_PADDING = 16;
-	static final DEFAULT_CONTROL_DISPLAYS: Array<ControlDisplay> = [
+	static final DEFAULT_CONTROL_DISPLAYS: Array<ControlHint> = [
 		{actions: [MENU_UP, MENU_DOWN], description: "Select"},
 		{actions: [BACK], description: "Back"},
 	];
 
+	@inject final widgetBuilder: Menu->Array<IListWidget>;
+
+	@inject public final header: String;
+
 	final font: Font;
-	final widgetBuilder: Menu->Array<IListWidget>;
 
 	var menu: Menu;
 
@@ -29,13 +36,10 @@ class ListMenuPage implements IMenuPage {
 	var widgetIndex: Int;
 	var minIndex: Int;
 
-	public final header: String;
-
-	public var controlDisplays(default, null): Array<ControlDisplay>;
+	public var controlHints(default, null): Array<ControlHint>;
 
 	public function new(opts: ListMenuPageOptions) {
-		header = opts.header;
-		widgetBuilder = opts.widgetBuilder;
+		game.Macros.initFromOpts();
 
 		font = Assets.fonts.Pixellari;
 
@@ -44,13 +48,13 @@ class ListMenuPage implements IMenuPage {
 		minIndex = 0;
 	}
 
-	inline function setControlDisplays() {
-		controlDisplays = DEFAULT_CONTROL_DISPLAYS.concat(widgets[widgetIndex].controlDisplays);
+	inline function setControlHints() {
+		controlHints = DEFAULT_CONTROL_DISPLAYS.concat(widgets[widgetIndex].controlHints);
 	}
 
 	function onSelect() {
 		widgetIndex = Utils.intClamp(0, widgetIndex, widgets.length - 1);
-		setControlDisplays();
+		setControlHints();
 	}
 
 	function popPage() {
@@ -119,7 +123,7 @@ class ListMenuPage implements IMenuPage {
 			minIndex = 0;
 		}
 
-		setControlDisplays();
+		setControlHints();
 	}
 
 	public function update() {

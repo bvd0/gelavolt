@@ -1,10 +1,11 @@
 package game.ui;
 
-import auto_attack.AutoAttackManager;
+import game.ui.PauseMenu.PauseMenuOptions;
+import game.auto_attack.AutoAttackManager;
 import game.simulation.LinkInfoBuilder;
 import ui.ListMenuPage;
-import auto_attack.AutoAttackType;
-import game.mediators.ControlDisplayContainer;
+import game.auto_attack.AutoAttackType;
+import game.mediators.ControlHintContainer;
 import game.rules.ColorBonusTableType;
 import game.rules.PowerTableType;
 import ui.NumberRangeWidget;
@@ -16,7 +17,7 @@ import game.garbage.GarbageManager;
 import save_data.TrainingSettings;
 import game.rules.MarginTimeManager;
 import game.simulation.ChainSimulator;
-import game.all_clear.AllClearManager;
+import game.AllClearManager;
 import game.boards.TrainingBoard;
 import game.boardstates.TrainingInfoBoardState;
 import game.boardstates.TrainingBoardState;
@@ -28,35 +29,27 @@ import ui.Menu;
 import ui.IListWidget;
 import ui.SubPageWidget;
 
+@:structInit
+@:build(game.Macros.buildOptionsClass(TrainingPauseMenu))
+class TrainingPauseMenuOptions extends PauseMenuOptions {}
+
 class TrainingPauseMenu extends PauseMenu {
-	final rule: Rule;
-	final randomizer: Randomizer;
-	final queue: Queue;
-	final playState: TrainingBoardState;
-	final trainingBoard: TrainingBoard;
-	final allClearManager: AllClearManager;
-	final chainSim: ChainSimulator;
-	final marginManager: MarginTimeManager;
-	final trainingSettings: TrainingSettings;
-	final playerGarbageManager: GarbageManager;
-	final infoGarbageManager: GarbageManager;
-	final controlDisplayContainer: ControlDisplayContainer;
-	final autoAttackManager: AutoAttackManager;
+	@inject final rule: Rule;
+	@inject final randomizer: Randomizer;
+	@inject final queue: Queue;
+	@inject final playState: TrainingBoardState;
+	@inject final trainingBoard: TrainingBoard;
+	@inject final allClearManager: AllClearManager;
+	@inject final chainSim: ChainSimulator;
+	@inject final marginManager: MarginTimeManager;
+	@inject final trainingSettings: TrainingSettings;
+	@inject final playerGarbageManager: GarbageManager;
+	@inject final infoGarbageManager: GarbageManager;
+	@inject final controlHintContainer: ControlHintContainer;
+	@inject final autoAttackManager: AutoAttackManager;
 
 	public function new(opts: TrainingPauseMenuOptions) {
-		rule = opts.rule;
-		randomizer = opts.randomizer;
-		queue = opts.queue;
-		playState = opts.playState;
-		trainingBoard = opts.trainingBoard;
-		allClearManager = opts.allClearManager;
-		chainSim = opts.chainSim;
-		marginManager = opts.marginManager;
-		trainingSettings = opts.trainingSettings;
-		playerGarbageManager = opts.playerGarbageManager;
-		infoGarbageManager = opts.infoGarbageManager;
-		controlDisplayContainer = opts.controlDisplayContainer;
-		autoAttackManager = opts.autoAttackManager;
+		game.Macros.initFromOpts();
 
 		super(opts);
 	}
@@ -76,7 +69,7 @@ class TrainingPauseMenu extends PauseMenu {
 							defaultValue: trainingSettings.showControlHints,
 							onChange: (value) -> {
 								trainingSettings.showControlHints = value;
-								controlDisplayContainer.isVisible = value;
+								controlHintContainer.isVisible = value;
 
 								SaveManager.saveProfiles();
 							}

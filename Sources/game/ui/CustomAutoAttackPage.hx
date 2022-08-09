@@ -1,7 +1,7 @@
 package game.ui;
 
-import auto_attack.AutoAttackLinkData;
-import auto_attack.AutoAttackManager;
+import game.auto_attack.AutoAttackLinkData;
+import game.auto_attack.AutoAttackManager;
 import game.simulation.ILinkInfoBuilder;
 import ui.SubPageWidget;
 import ui.IListWidget;
@@ -19,7 +19,7 @@ class CustomAutoAttackPage extends ListMenuPage {
 		super({
 			header: "Configure",
 			widgetBuilder: (_) -> {
-				final data = autoAttackManager.linkData;
+				final data = autoAttackManager.linkData.data;
 
 				final widgets: Array<IListWidget> = [
 					new ButtonWidget({

@@ -1,20 +1,20 @@
 package game.boardmanagers;
 
-import game.mediators.TransformationMediator;
 import game.geometries.BoardGeometries;
 import kha.math.FastMatrix3;
 import kha.graphics2.Graphics;
 import game.boards.IBoard;
 
+@:structInit
+@:build(game.Macros.buildOptionsClass(SingleBoardManager))
+class SingleBoardManagerOptions {}
+
 class SingleBoardManager implements IBoardManager {
-	final transformMediator: TransformationMediator;
-	final geometries: BoardGeometries;
-	final board: IBoard;
+	@inject final geometries: BoardGeometries;
+	@inject final board: IBoard;
 
 	public function new(opts: SingleBoardManagerOptions) {
-		transformMediator = opts.transformMediator;
-		geometries = opts.geometries;
-		board = opts.board;
+		game.Macros.initFromOpts();
 	}
 
 	public function update() {
@@ -28,11 +28,12 @@ class SingleBoardManager implements IBoardManager {
 
 		final scale = geometries.scale;
 
+		ScaleManager.transformedScissor(g, absX, absY, BoardGeometries.WIDTH * scale, BoardGeometries.HEIGHT * scale);
+
 		final transform = FastMatrix3.translation(absX, absY).multmat(FastMatrix3.scale(scale, scale));
 
 		g.pushTransformation(g.transformation.multmat(transform));
 
-		transformMediator.setTransformedScissor(g, absX, absY, BoardGeometries.WIDTH * scale, BoardGeometries.HEIGHT * scale);
 		board.renderScissored(g, g4, alpha);
 		g.disableScissor();
 

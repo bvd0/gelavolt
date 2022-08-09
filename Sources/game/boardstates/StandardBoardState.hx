@@ -1,12 +1,12 @@
 package game.boardstates;
 
-import game.mediators.TransformationMediator;
+import game.rules.AnimationsType;
 import game.rules.Rule;
 import utils.Utils;
 import game.simulation.SimulationStepType;
 import save_data.PrefsSettings;
 import game.fields.Field;
-import game.gelos.GeloPoint;
+import game.gelos.ScreenGeloPoint;
 import game.gelos.Gelo;
 import kha.Color;
 import game.particles.GeloPopParticle;
@@ -20,13 +20,13 @@ import game.simulation.ChainSimulator;
 import game.geometries.BoardGeometries;
 import kha.Assets;
 import game.actionbuffers.IActionBuffer;
-import game.score.ScoreManager;
-import game.all_clear.AllClearManager;
+import game.ScoreManager;
+import game.AllClearManager;
 import game.actionbuffers.ActionSnapshot;
 import game.previews.IPreview;
 import game.Queue;
 import game.gelogroups.GeloGroup;
-import kha.math.Random;
+import game.copying.CopyableRNG;
 import game.garbage.IGarbageManager;
 import kha.graphics2.Graphics;
 import kha.graphics4.Graphics as Graphics4;
@@ -38,68 +38,53 @@ private enum InnerState {
 	POP_PAUSE;
 }
 
+@:structInit
+@:build(game.Macros.buildOptionsClass(StandardBoardState))
+class StandardBoardStateOptions {}
+
 class StandardBoardState implements IBoardState {
-	final rule: Rule;
-	final prefsSettings: PrefsSettings;
+	@inject final rule: Rule;
+	@inject final prefsSettings: PrefsSettings;
 
-	final transformMediator: TransformationMediator;
-	final rng: Random;
-	final geometries: BoardGeometries;
-	final particleManager: ParticleManager;
+	@inject final rng: CopyableRNG;
+	@inject final geometries: BoardGeometries;
+	@inject final particleManager: ParticleManager;
 
-	final geloGroup: GeloGroup;
-	final queue: Queue;
-	final preview: IPreview;
-	final allClearManager: AllClearManager;
-	final scoreManager: ScoreManager;
-	final actionBuffer: IActionBuffer;
-	final chainCounter: ChainCounter;
-	final field: Field;
-	final chainSim: ChainSimulator;
-	final garbageManager: IGarbageManager;
+	@inject final geloGroup: GeloGroup;
+	@inject final queue: Queue;
+	@inject final preview: IPreview;
+	@inject final allClearManager: AllClearManager;
+	@inject final scoreManager: ScoreManager;
+	@inject final actionBuffer: IActionBuffer;
+	@inject final chainCounter: ChainCounter;
+	@inject final field: Field;
+	@inject final chainSim: ChainSimulator;
+	@inject final garbageManager: IGarbageManager;
 
-	var popPauseMaxT: Int;
+	@copy var popPauseMaxT: Int;
 
-	var currentActions: ActionSnapshot;
+	@copy var currentActions: ActionSnapshot;
 
-	var popPauseT: Int;
+	@copy var popPauseT: Int;
 
-	var firstDropFrame: Bool;
+	@copy var firstDropFrame: Bool;
 
-	var borderColor: Color;
-	var beginBorderColor: Color;
-	var targetBorderColor: Color;
-	var borderColorT: Int;
+	@copy var borderColor: Color;
+	@copy var beginBorderColor: Color;
+	@copy var targetBorderColor: Color;
+	@copy var borderColorT: Int;
 
-	var currentBeginStep: Null<BeginSimStep>;
-	var currentDropStep: Null<DropSimStep>;
-	var currentPopStep: Null<PopSimStep>;
-	var currentEndStep: Null<EndSimStep>;
+	@copy var currentBeginStep: Null<BeginSimStep>;
+	@copy var currentDropStep: Null<DropSimStep>;
+	@copy var currentPopStep: Null<PopSimStep>;
+	@copy var currentEndStep: Null<EndSimStep>;
 
-	var canDropGarbage: Bool;
+	@copy var canDropGarbage: Bool;
 
-	var state: InnerState;
+	@copy var state: InnerState;
 
 	public function new(opts: StandardBoardStateOptions) {
-		rule = opts.rule;
-		prefsSettings = opts.prefsSettings;
-
-		transformMediator = opts.transformMediator;
-		rng = opts.rng;
-		geometries = opts.geometries;
-		particleManager = opts.particleManager;
-
-		geloGroup = opts.geloGroup;
-
-		queue = opts.queue;
-		preview = opts.preview;
-		allClearManager = opts.allClearManager;
-		scoreManager = opts.scoreManager;
-		actionBuffer = opts.actionBuffer;
-		chainCounter = opts.chainCounter;
-		field = opts.field;
-		chainSim = opts.chainSim;
-		garbageManager = opts.garbageManager;
+		game.Macros.initFromOpts();
 
 		popPauseMaxT = 30;
 
@@ -269,7 +254,7 @@ class StandardBoardState implements IBoardState {
 		// happen easily when continuing from a PopSimStep because field
 		// snapshots show the field state AFTER the Gelos have popped.
 		try {
-			for (c in currentPopStep.popInfo.clears) {
+			for (c in currentPopStep.popInfo.clears.data) {
 				field.getAtPoint(c).startPopping(TSU);
 			}
 		} catch (_) {
@@ -285,12 +270,12 @@ class StandardBoardState implements IBoardState {
 		final clears = currentPopStep.popInfo.clears;
 
 		// Wait for Gelos to finish popping animation
-		for (c in clears) {
+		for (c in clears.data) {
 			if (field.getAtPoint(c).state == POPPING)
 				return;
 		}
 
-		for (c in clears) {
+		for (c in clears.data) {
 			field.clear(c.x, c.y);
 		}
 
@@ -304,14 +289,14 @@ class StandardBoardState implements IBoardState {
 
 		final absPos = geometries.absolutePosition;
 		final popInfo = currentPopStep.popInfo;
-		final beginnerScreenCoords: Array<GeloPoint> = [];
+		final beginnerScreenCoords = new Array<ScreenGeloPoint>();
 
-		for (b in popInfo.beginners) {
+		for (b in popInfo.beginners.data) {
 			final screenCoords = field.cellToScreen(b.x, b.y);
 
 			beginnerScreenCoords.push({
-				x: Std.int(screenCoords.x),
-				y: Std.int(screenCoords.y),
+				x: screenCoords.x,
+				y: screenCoords.y,
 				color: b.color
 			});
 		}
@@ -320,7 +305,7 @@ class StandardBoardState implements IBoardState {
 
 		chainCounter.startAnimation(currentPopStep.chain, {x: firstPop.x, y: firstPop.y}, currentPopStep.linkInfo.isPowerful);
 
-		for (c in popInfo.clears) {
+		for (c in popInfo.clears.data) {
 			if (c.color.isGarbage())
 				continue;
 
@@ -329,12 +314,12 @@ class StandardBoardState implements IBoardState {
 
 			for (i in 0...8) {
 				particleManager.add(FRONT, GeloPopParticle.create({
-					x: absCoords.x + Gelo.HALFSIZE * rng.GetFloatIn(-1, 1),
-					y: absCoords.y + Gelo.HALFSIZE * rng.GetFloatIn(-1, 1),
-					dx: ((i % 2 == 0) ? -8 : 8) * rng.GetFloatIn(0.5, 1.5),
-					dy: -10 * rng.GetFloatIn(0.5, 1.5),
-					dyIncrement: 0.75 * rng.GetFloatIn(0.5, 1.5),
-					maxT: Std.int((30 + i * 6) * rng.GetFloatIn(0.5, 1.5)),
+					x: absCoords.x + Gelo.HALFSIZE * rng.data.GetFloatIn(-1, 1),
+					y: absCoords.y + Gelo.HALFSIZE * rng.data.GetFloatIn(-1, 1),
+					dx: ((i % 2 == 0) ? -8 : 8) * rng.data.GetFloatIn(0.5, 1.5),
+					dy: -10 * rng.data.GetFloatIn(0.5, 1.5),
+					dyIncrement: 0.75 * rng.data.GetFloatIn(0.5, 1.5),
+					maxT: Std.int((30 + i * 6) * rng.data.GetFloatIn(0.5, 1.5)),
 					color: prefsSettings.primaryColors[c.color]
 				}));
 			}
@@ -420,7 +405,7 @@ class StandardBoardState implements IBoardState {
 			var columnIndex: Int;
 
 			if (rule.randomizeGarbage) {
-				columnIndex = rng.GetUpTo(columnPositions.length - 1);
+				columnIndex = rng.data.GetUpTo(columnPositions.length - 1);
 			} else {
 				columnIndex = 0;
 			}
@@ -429,7 +414,7 @@ class StandardBoardState implements IBoardState {
 			final column = columnPositions[columnIndex];
 			final accel = accels[fallInBulk ? column : accelCenterIndex];
 
-			field.newGarbage(column, row, rule.garbageColor).startGarbageFalling(accel);
+			field.newGarbage(column, row, GARBAGE).startGarbageFalling(accel);
 
 			columnPositions.remove(column);
 		}
@@ -458,7 +443,7 @@ class StandardBoardState implements IBoardState {
 	}
 
 	public function update() {
-		currentActions = actionBuffer.latestAction;
+		currentActions = actionBuffer.update();
 		geloGroup.update();
 		field.update();
 		preview.update();
@@ -509,9 +494,8 @@ class StandardBoardState implements IBoardState {
 		chainCounter.render(g, alpha);
 
 		final previewPos = geometries.preview;
-		final absPreviewPos = geometries.absolutePosition.add(previewPos);
 
-		transformMediator.setTransformedScissor(g, absPreviewPos.x - Gelo.HALFSIZE, absPreviewPos.y - Gelo.HALFSIZE, Gelo.SIZE, Gelo.SIZE * 4.5);
+		ScaleManager.transformedScissor(g, previewPos.x - Gelo.HALFSIZE, previewPos.y - Gelo.HALFSIZE, Gelo.SIZE, Gelo.SIZE * 4.5);
 
 		preview.render(g, previewPos.x, previewPos.y);
 

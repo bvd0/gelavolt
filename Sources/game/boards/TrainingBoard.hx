@@ -1,7 +1,7 @@
 package game.boards;
 
-import ui.ControlDisplay;
-import game.mediators.ControlDisplayContainer;
+import ui.ControlHint;
+import game.mediators.ControlHintContainer;
 import input.IInputDevice;
 import game.mediators.PauseMediator;
 import game.boardstates.TrainingBoardState;
@@ -11,16 +11,23 @@ import game.actionbuffers.IActionBuffer;
 import kha.graphics2.Graphics;
 import kha.graphics4.Graphics as Graphics4;
 import game.boardstates.IBoardState;
+import game.mediators.SaveGameStateMediator;
+
+@:structInit
+@:build(game.Macros.buildOptionsClass(TrainingBoard))
+class TrainingBoardOptions {}
 
 class TrainingBoard implements IBoard {
-	static final GAME_CONTROL_DISPLAY: Array<ControlDisplay> = [
+	static final GAME_CONTROL_HINTS: Array<ControlHint> = [
 		{actions: [TOGGLE_EDIT_MODE], description: "Edit Mode"},
 		{actions: [PREVIOUS_GROUP], description: "Undo"},
 		{actions: [NEXT_GROUP], description: "Redo / Get Next Group"},
-		{actions: [QUICK_RESTART], description: "Quick Restart"}
+		{actions: [QUICK_RESTART], description: "Quick Restart"},
+		{actions: [SAVE_STATE], description: "Save State"},
+		{actions: [LOAD_STATE], description: "Load State"}
 	];
 
-	static final EDIT_CONTROL_DISPLAY: Array<ControlDisplay> = [
+	static final EDIT_CONTROL_HINTS: Array<ControlHint> = [
 		{actions: [TOGGLE_EDIT_MODE], description: "Play Mode"},
 		{actions: [EDIT_SET], description: "Set"},
 		{actions: [EDIT_CLEAR], description: "Clear"},
@@ -29,28 +36,31 @@ class TrainingBoard implements IBoard {
 		{actions: [TOGGLE_MARKERS], description: "Toggle Gelos / Markers"},
 	];
 
-	final pauseMediator: PauseMediator;
-	final inputDevice: IInputDevice;
-	final actionBuffer: IActionBuffer;
-	final infoState: TrainingInfoBoardState;
-	final controlDisplayContainer: ControlDisplayContainer;
+	@inject final pauseMediator: PauseMediator;
+	@inject final inputDevice: IInputDevice;
+	@inject final infoState: TrainingInfoBoardState;
+	@inject final controlHintContainer: ControlHintContainer;
+	@inject final saveGameStateMediator: SaveGameStateMediator;
 
-	final playState: TrainingBoardState;
-	final editState: EditingBoardState;
+	@inject final playState: TrainingBoardState;
+	@inject final editState: EditingBoardState;
 
-	var activeState: IBoardState;
+	@copy var activeState: IBoardState;
 
 	public function new(opts: TrainingBoardOptions) {
-		pauseMediator = opts.pauseMediator;
-		inputDevice = opts.inputDevice;
-		actionBuffer = opts.playActionBuffer;
-		infoState = opts.infoState;
-		controlDisplayContainer = opts.controlDisplayContainer;
-
-		playState = opts.playState;
-		editState = opts.editState;
+		game.Macros.initFromOpts();
 
 		changeToGame();
+	}
+
+	function setControlHints(hints: Array<ControlHint>) {
+		final d = controlHintContainer.value.data;
+
+		d.resize(0);
+
+		for (h in hints) {
+			d.push(h);
+		}
 	}
 
 	function changeToEdit() {
@@ -58,7 +68,7 @@ class TrainingBoard implements IBoard {
 
 		infoState.showChainSteps();
 
-		controlDisplayContainer.value = EDIT_CONTROL_DISPLAY;
+		setControlHints(EDIT_CONTROL_HINTS);
 
 		activeState = editState;
 	}
@@ -68,7 +78,7 @@ class TrainingBoard implements IBoard {
 
 		infoState.hideChainSteps();
 
-		controlDisplayContainer.value = GAME_CONTROL_DISPLAY;
+		setControlHints(GAME_CONTROL_HINTS);
 
 		activeState = playState;
 	}
@@ -115,6 +125,12 @@ class TrainingBoard implements IBoard {
 			if (inputDevice.getAction(QUICK_RESTART)) {
 				playState.onLose();
 			}
+
+			if (inputDevice.getAction(SAVE_STATE)) {
+				saveGameStateMediator.saveState();
+			} else if (inputDevice.getAction(LOAD_STATE)) {
+				saveGameStateMediator.loadState(0);
+			}
 		} else {
 			if (inputDevice.getAction(PREVIOUS_STEP)) {
 				editState.viewPrevious();
@@ -125,7 +141,6 @@ class TrainingBoard implements IBoard {
 			}
 		}
 
-		actionBuffer.update();
 		activeState.update();
 	}
 

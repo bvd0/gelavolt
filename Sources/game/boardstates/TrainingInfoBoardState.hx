@@ -1,6 +1,6 @@
 package game.boardstates;
 
-import auto_attack.AutoAttackManager;
+import game.auto_attack.AutoAttackManager;
 import save_data.PrefsSettings;
 import game.garbage.IGarbageManager;
 import game.rules.Rule;
@@ -8,7 +8,7 @@ import utils.Utils;
 import game.rules.MarginTimeManager;
 import save_data.TrainingSettings;
 import game.garbage.trays.GarbageTray;
-import game.score.ScoreManager;
+import game.ScoreManager;
 import game.simulation.ILinkInfoBuilder;
 import kha.Color;
 import game.geometries.BoardGeometries;
@@ -19,8 +19,13 @@ import kha.Font;
 import kha.graphics2.Graphics;
 import kha.graphics4.Graphics as Graphics4;
 import utils.Utils.shadowDrawString;
+import game.copying.ConstantCopyableArray;
 
 using StringTools;
+
+@:structInit
+@:build(game.Macros.buildOptionsClass(TrainingInfoBoardState))
+class TrainingInfoBoardStateOptions {}
 
 @:access(game.rules.Rule)
 class TrainingInfoBoardState implements IBoardState {
@@ -30,80 +35,71 @@ class TrainingInfoBoardState implements IBoardState {
 
 	public static inline final GAME_INFO_X = -64;
 
-	final geometries: BoardGeometries;
-	final marginManager: MarginTimeManager;
-	final rule: Rule;
-	final linkBuilder: ILinkInfoBuilder;
-	final trainingSettings: TrainingSettings;
-	final chainAdvantageDisplay: GarbageTray;
-	final afterCounterDisplay: GarbageTray;
-	final garbageManager: IGarbageManager;
-	final prefsSettings: PrefsSettings;
-	final autoAttackManager: AutoAttackManager;
+	@inject final geometries: BoardGeometries;
+	@inject final marginManager: MarginTimeManager;
+	@inject final rule: Rule;
+	@inject final linkBuilder: ILinkInfoBuilder;
+	@inject final trainingSettings: TrainingSettings;
+	@inject final chainAdvantageDisplay: GarbageTray;
+	@inject final afterCounterDisplay: GarbageTray;
+	@inject final garbageManager: IGarbageManager;
+	@inject final prefsSettings: PrefsSettings;
+	@inject final autoAttackManager: AutoAttackManager;
 
-	final playerScoreManager: ScoreManager;
-	final playerChainSim: ChainSimulator;
+	@inject final playerScoreManager: ScoreManager;
+	@inject final playerChainSim: ChainSimulator;
 
 	final font: Font;
 	final titleFontHeight: Float;
 	final cardFontHeight: Float;
 	final splitPercentageWidth: Float;
 
-	var chain: Int;
-	var chainLength: Int;
+	@copy final linkStandardDamages: ConstantCopyableArray<Int>;
 
-	var linkDamage: Int;
-	var linkRemainder: Float;
-	var linkStandardDamages: Array<Int>;
+	@copy var chain: Int;
+	@copy var chainLength: Int;
 
-	var chainDamage: Int;
-	var totalDamage: Int;
+	@copy var linkDamage: Int;
+	@copy var linkRemainder: Float;
 
-	var chainAdvantage: Int;
-	var toCounterChain: Int;
-	var counterDifference: Int;
+	@copy var chainDamage: Int;
+	@copy var totalDamage: Int;
 
-	var groupCounter: Int;
-	var ppsT: Int;
+	@copy var chainAdvantage: Int;
+	@copy var toCounterChain: Int;
+	@copy var counterDifference: Int;
 
-	var splitT: Int;
+	@copy var groupCounter: Int;
+	@copy var ppsT: Int;
 
-	var currentGreatSplits: Int;
-	var currentOkaySplits: Int;
-	var currentSlowSplits: Int;
-	var currentSplitCounter: Int;
+	@copy var splitT: Int;
 
-	var overallGreatSplits: Int;
-	var overallOkaySplits: Int;
-	var overallSlowSplits: Int;
-	var overallSplitCounter: Int;
+	@copy var currentGreatSplits: Int;
+	@copy var currentOkaySplits: Int;
+	@copy var currentSlowSplits: Int;
+	@copy var currentSplitCounter: Int;
 
-	var updateSplitT: Bool;
-	var showSteps: Bool;
+	@copy var overallGreatSplits: Int;
+	@copy var overallOkaySplits: Int;
+	@copy var overallSlowSplits: Int;
+	@copy var overallSplitCounter: Int;
 
-	var viewMin: Int;
+	@copy var updateSplitT: Bool;
+	@copy var showSteps: Bool;
 
-	public var shouldUpdatePPST: Bool;
+	@copy var viewMin: Int;
+
+	@copy public var shouldUpdatePPST: Bool;
 
 	public function new(opts: TrainingInfoBoardStateOptions) {
-		geometries = opts.geometries;
-		marginManager = opts.marginManager;
-		rule = opts.rule;
-		linkBuilder = opts.linkBuilder;
-		trainingSettings = opts.trainingSettings;
-		chainAdvantageDisplay = opts.chainAdvantageDisplay;
-		afterCounterDisplay = opts.afterCounterDisplay;
-		garbageManager = opts.garbageManager;
-		prefsSettings = opts.prefsSettings;
-		autoAttackManager = opts.autoAttackManager;
-
-		playerScoreManager = opts.playerScoreManager;
-		playerChainSim = opts.playerChainSim;
+		game.Macros.initFromOpts();
 
 		font = Assets.fonts.Pixellari;
 		titleFontHeight = font.height(TITLE_FONT_SIZE);
 		cardFontHeight = font.height(CARD_FONT_SIZE);
 		splitPercentageWidth = font.width(TITLE_FONT_SIZE, "000% ");
+
+		linkStandardDamages = new ConstantCopyableArray([]);
 
 		chain = 0;
 		chainLength = 0;
@@ -241,7 +237,7 @@ class TrainingInfoBoardState implements IBoardState {
 		for (i in 0...4) {
 			final stepIndex = viewMin + i;
 			final localIndex = viewIndex - viewMin;
-			final step = steps[stepIndex];
+			final step = steps.data[stepIndex];
 
 			if (step == null)
 				break;
@@ -257,7 +253,7 @@ class TrainingInfoBoardState implements IBoardState {
 		}
 
 		g.fontSize = CARD_FONT_SIZE;
-		shadowDrawString(g, 3, Black, White, '${viewIndex + 1} / ${steps.length}', 0, BoardGeometries.HEIGHT);
+		shadowDrawString(g, 3, Black, White, '${viewIndex + 1} / ${steps.data.length}', 0, BoardGeometries.HEIGHT);
 	}
 
 	public function resetCurrentSplitStatistics() {
@@ -313,7 +309,7 @@ class TrainingInfoBoardState implements IBoardState {
 		chainLength = latestChain;
 
 		linkDamage = 0;
-		linkStandardDamages = [];
+		linkStandardDamages.data.resize(0);
 
 		chainDamage = 0;
 		totalDamage = playerChainSim.latestGarbageCounter;
@@ -336,7 +332,7 @@ class TrainingInfoBoardState implements IBoardState {
 			garbageCounter = link.accumulatedGarbage;
 			remainder = link.garbageRemainder;
 
-			linkStandardDamages.push(link.garbage);
+			linkStandardDamages.data.push(link.garbage);
 
 			if (toCounterChain == chainLength) {
 				chainAdvantage = totalDamage - garbageCounter;

@@ -5,8 +5,13 @@ import kha.graphics2.Graphics;
 import kha.Color;
 import utils.Point;
 import utils.Utils.lerp;
+import game.copying.CopyableArray;
 
 using kha.graphics2.GraphicsExtension;
+
+@:structInit
+@:build(game.Macros.buildOptionsClass(GarbageBulletParticle))
+class GarbageBulletParticleOptions {}
 
 class GarbageBulletParticle implements IParticle {
 	public static function create(opts: GarbageBulletParticleOptions) {
@@ -26,39 +31,43 @@ class GarbageBulletParticle implements IParticle {
 		return p;
 	}
 
-	final particleManager: ParticleManager;
-	final layer: ParticleLayer;
+	@inject final begin: Point;
+	@inject final control: Point;
+	@inject final target: Point;
+	@inject final beginScale: Float;
+	@inject final targetScale: Float;
+	@inject final duration: Int;
+	@inject final color: Color;
+	@inject final onFinish: Void->Void;
 
-	final begin: Point;
-	final control: Point;
-	final target: Point;
-	final beginScale: Float;
-	final targetScale: Float;
-	final duration: Int;
-	final color: Color;
-	final onFinish: Void->Void;
+	@copy final trailParts: CopyableArray<GarbageBulletTrailParticle>;
 
-	var prevX: Float;
-	var prevY: Float;
+	@copy var prevX: Float;
+	@copy var prevY: Float;
 
-	var currentX: Float;
-	var currentY: Float;
-	var t: Float;
+	@copy var currentX: Float;
+	@copy var currentY: Float;
+	@copy var t: Float;
 
-	public var isAnimationFinished(default, null): Bool;
+	@copy public var isAnimationFinished(default, null): Bool;
 
 	function new(opts: GarbageBulletParticleOptions) {
-		particleManager = opts.particleManager;
-		layer = opts.layer;
+		game.Macros.initFromOpts();
 
-		begin = opts.begin;
-		control = opts.control;
-		target = opts.target;
-		beginScale = opts.beginScale;
-		targetScale = opts.targetScale;
-		duration = opts.duration;
-		color = opts.color;
-		onFinish = opts.onFinish;
+		trailParts = new CopyableArray([]);
+	}
+
+	public function copy() {
+		return new GarbageBulletParticle({
+			begin: begin,
+			control: control,
+			target: target,
+			beginScale: beginScale,
+			targetScale: targetScale,
+			duration: duration,
+			color: color,
+			onFinish: onFinish
+		}).copyFrom(this);
 	}
 
 	public function update() {
@@ -72,11 +81,15 @@ class GarbageBulletParticle implements IParticle {
 		currentX = current.x;
 		currentY = current.y;
 
-		particleManager.add(layer, GarbageBulletTrailParticle.create({
+		trailParts.data.push(GarbageBulletTrailParticle.create({
 			x: currentX,
 			y: currentY,
 			color: color
 		}));
+
+		for (p in trailParts.data) {
+			p.update();
+		}
 
 		t += 1 / duration;
 
@@ -91,6 +104,10 @@ class GarbageBulletParticle implements IParticle {
 
 		final lerpX = lerp(prevX, currentX, alpha);
 		final lerpY = lerp(prevY, currentY, alpha);
+
+		for (p in trailParts.data) {
+			p.render(g, alpha);
+		}
 
 		g.color = color;
 		g.fillCircle(lerpX, lerpY, 32 * scale);

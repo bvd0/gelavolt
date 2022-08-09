@@ -1,17 +1,19 @@
 package game.gelogroups;
 
+import game.copying.CopyableArray;
+import game.copying.ConstantCopyableArray;
+import game.copying.ICopyFrom;
 import game.gelos.GeloColor;
 import game.gelos.OtherGelo;
 import game.rules.Rule;
 import save_data.PrefsSettings;
 import game.fields.Field;
-import kha.Color;
 import game.simulation.PopSimStep;
 import game.simulation.ChainSimulator;
-import game.gelos.GeloPoint;
+import game.gelos.ScreenGeloPoint;
 import kha.graphics2.Graphics;
 import kha.graphics4.Graphics as Graphics4;
-import game.score.ScoreManager;
+import game.ScoreManager;
 import game.gelos.FieldGelo;
 import game.gelos.Gelo;
 import utils.Utils.lerp;
@@ -24,59 +26,61 @@ enum GeloGroupState {
 	SPLITTING;
 }
 
-class GeloGroup {
-	final rule: Rule;
-	final prefsSettings: PrefsSettings;
+@:structInit
+@:build(game.Macros.buildOptionsClass(GeloGroup))
+class GeloGroupOptions {}
 
-	final scoreManager: ScoreManager;
-	final field: Field;
-	final chainSim: ChainSimulator;
+class GeloGroup implements ICopyFrom {
+	@inject final rule: Rule;
+	@inject final prefsSettings: PrefsSettings;
+	@inject final scoreManager: ScoreManager;
+	@inject final field: Field;
+	@inject final chainSim: ChainSimulator;
 
-	var main: Gelo;
-	var others: Array<OtherGelo>;
+	@copy final others: CopyableArray<OtherGelo>;
+	@copy final otherShadows: ConstantCopyableArray<ScreenGeloPoint>;
 
-	var x: Float;
-	var y: Float;
+	@copy var main: Gelo;
 
-	var prevDisplayX: Float;
-	var prevDisplayY: Float;
+	@copy var x: Float;
+	@copy var y: Float;
 
-	var displayX: Float;
-	var displayY: Float;
+	@copy var prevDisplayX: Float;
+	@copy var prevDisplayY: Float;
 
-	var prevRotationAngle: Int;
+	@copy var displayX: Float;
+	@copy var displayY: Float;
 
-	var rotationID: Int;
-	var rotationAngle: Int;
+	@copy var prevRotationAngle: Int;
 
-	var targetRotationAngle: Int;
-	var rotationIncrement: Int;
+	@copy var rotationID: Int;
+	@copy var rotationAngle: Int;
 
-	var stuckRotationCount: Int;
-	var lockResetCount: Int;
-	var graceT: Int;
+	@copy var targetRotationAngle: Int;
+	@copy var rotationIncrement: Int;
 
-	var das: Int;
-	var dasDirection: Int;
-	var arr: Int;
+	@copy var stuckRotationCount: Int;
+	@copy var lockResetCount: Int;
+	@copy var graceT: Int;
 
-	var mainShadow: GeloPoint;
-	var otherShadows: Array<GeloPoint>;
+	@copy var das: Int;
+	@copy var dasDirection: Int;
+	@copy var arr: Int;
 
-	var willTriggerChain: Bool;
-	var shouldLock: Bool;
-	var willTriggerChainT = 0;
+	@copy var mainShadow: ScreenGeloPoint;
 
-	public var isVisible: Bool;
-	public var isShadowVisible: Bool;
+	@copy var willTriggerChain: Bool;
+	@copy var shouldLock: Bool;
+	@copy var willTriggerChainT: Int;
+
+	@copy public var isVisible: Bool;
+	@copy public var isShadowVisible: Bool;
 
 	public function new(opts: GeloGroupOptions) {
-		rule = opts.rule;
-		prefsSettings = opts.prefsSettings;
+		game.Macros.initFromOpts();
 
-		scoreManager = opts.scoreManager;
-		field = opts.field;
-		chainSim = opts.chainSim;
+		others = new CopyableArray([]);
+		otherShadows = new ConstantCopyableArray([]);
 
 		isVisible = false;
 		isShadowVisible = false;
@@ -136,7 +140,7 @@ class GeloGroup {
 		if (field.cannotPlace(mainCellX, mainCellY))
 			return false;
 
-		for (o in others) {
+		for (o in others.data) {
 			final rot = o.getRotation(rotationID);
 
 			if (field.cannotPlace(mainCellX + rot.x, mainCellY + rot.y))
@@ -158,7 +162,7 @@ class GeloGroup {
 		this.rotationID = rotationID;
 		targetRotationAngle = rotationIDToAngle();
 
-		for (o in others) {
+		for (o in others.data) {
 			o.changeRotation(rotationID);
 		}
 
@@ -173,25 +177,26 @@ class GeloGroup {
 
 		final mainGelo = workField.newGelo(cellX, cellY, main.color, true);
 		final otherGelos: Array<FieldGelo> = [];
+		final otherShadowsData = otherShadows.data;
 
-		for (o in others) {
+		for (o in others.data) {
 			otherGelos.push(workField.newGelo(cellX + o.relX, cellY + o.relY, o.color, true));
 		}
 
 		workField.drop();
 
 		mainShadow = {
-			x: Std.int(mainGelo.x),
-			y: Std.int(mainGelo.y),
+			x: mainGelo.x,
+			y: mainGelo.y,
 			color: mainGelo.color
 		};
 
-		otherShadows = [];
+		otherShadowsData.resize(0);
 
 		for (o in otherGelos) {
-			otherShadows.push({
-				x: Std.int(o.x),
-				y: Std.int(o.y),
+			otherShadowsData.push({
+				x: o.x,
+				y: o.y,
 				color: o.color
 			});
 		}
@@ -211,7 +216,7 @@ class GeloGroup {
 
 		willTriggerChain = false;
 
-		if (chainSim.steps.length == 3) {
+		if (chainSim.steps.data.length == 3) {
 			return;
 		}
 
@@ -220,7 +225,7 @@ class GeloGroup {
 
 		final popStep = cast(chainSim.getViewedStep(), PopSimStep);
 
-		for (c in popStep.popInfo.clears) {
+		for (c in popStep.popInfo.clears.data) {
 			// The clear might refer to the Gelo that is still dropping,
 			// so it might be empty on the "real" field.
 			if (field.isEmptyAtPoint(c))
@@ -276,7 +281,7 @@ class GeloGroup {
 
 		// Check if the opposite side is free (by simulating a double rotation)
 		if (checkPlacement(cellX, cellY, oppositeRotationID)) {
-			for (o in others) {
+			for (o in others.data) {
 				final dir = o.getRotation(oppositeRotationID);
 
 				if (checkRotationAndConfirm(cellX + dir.x, cellY + dir.y, nextRotationID)) {
@@ -317,13 +322,13 @@ class GeloGroup {
 			color: opts.mainColor,
 		});
 
-		others = [];
+		others.data.resize(0);
 
-		for (o in opts.others) {
+		for (o in opts.others.data) {
 			if (o.color == EMPTY)
 				continue;
 
-			others.push(OtherGelo.create(o));
+			others.data.push(OtherGelo.create(o));
 		}
 
 		this.x = x;
@@ -414,7 +419,7 @@ class GeloGroup {
 
 				field.newGelo(cellX, cellY, main.color, false).startSplitting();
 
-				for (o in others) {
+				for (o in others.data) {
 					field.newGelo(cellX + o.relX, cellY + o.relY, o.color, false).startSplitting();
 				}
 
@@ -437,7 +442,7 @@ class GeloGroup {
 
 		field.newGelo(mainCell.x, mainCell.y, mainShadow.color, false).startSplitting();
 
-		for (o in otherShadows) {
+		for (o in otherShadows.data) {
 			final otherCell = field.screenToCell(o.x, o.y);
 
 			field.newGelo(otherCell.x, otherCell.y, o.color, false).startSplitting();
@@ -462,7 +467,7 @@ class GeloGroup {
 
 		g.pushOpacity(shadowOpacity);
 
-		for (o in otherShadows) {
+		for (o in otherShadows.data) {
 			g.color = getPrimaryColor(o.color);
 			g.fillCircle(o.x, o.y, radius, 16);
 		}
@@ -472,7 +477,7 @@ class GeloGroup {
 		if (prefsSettings.shadowHighlightOthers) {
 			final background = prefsSettings.boardBackground;
 
-			for (o in otherShadows) {
+			for (o in otherShadows.data) {
 				g.color = background;
 				g.fillCircle(o.x, o.y, radius - 8, 16);
 			}
@@ -501,7 +506,7 @@ class GeloGroup {
 
 		main.update();
 
-		for (o in others) {
+		for (o in others.data) {
 			o.update();
 		}
 
@@ -536,7 +541,7 @@ class GeloGroup {
 		final lerpCos = lerp(prevCos, currentCos, alpha);
 		final lerpSin = lerp(prevSin, currentSin, alpha);
 
-		for (o in others) {
+		for (o in others.data) {
 			renderGelo(g, g4, lerpDisplayX + lerpCos * Gelo.SIZE, lerpDisplayY + lerpSin * Gelo.SIZE, alpha, o);
 		}
 

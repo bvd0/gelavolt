@@ -7,14 +7,18 @@ import kha.Assets;
 import kha.Font;
 import kha.graphics2.Graphics;
 
+@:structInit
+@:build(game.Macros.buildOptionsClass(AnyGamepadDetectWrapper))
+class AnyGamepadDetectWrapperOptions {}
+
 class AnyGamepadDetectWrapper implements IMenuPage {
 	static inline final FONT_SIZE = 64;
 	static final TEXT = ["Press any button on", "the gamepad you wish", "to use"];
 
-	final font: Font;
+	@inject final keyboardDevice: KeyboardInputDevice;
+	@inject final pageBuilder: GamepadInputDevice->IMenuPage;
 
-	final keyboardDevice: KeyboardInputDevice;
-	final pageBuilder: GamepadInputDevice->IMenuPage;
+	final font: Font;
 
 	var menu: Menu;
 	var fontSize: Int;
@@ -22,17 +26,16 @@ class AnyGamepadDetectWrapper implements IMenuPage {
 
 	public final header: String;
 
-	public var controlDisplays(default, null): Array<ControlDisplay>;
+	public var controlHints(default, null): Array<ControlHint>;
 
 	public function new(opts: AnyGamepadDetectWrapperOptions) {
-		font = Assets.fonts.Pixellari;
+		game.Macros.initFromOpts();
 
-		keyboardDevice = opts.keyboardDevice;
-		pageBuilder = opts.pageBuilder;
+		font = Assets.fonts.Pixellari;
 
 		header = "Select Gamepad";
 
-		controlDisplays = [{actions: [BACK], description: "Back"}];
+		controlHints = [{actions: [BACK], description: "Back"}];
 	}
 
 	inline function popPage() {

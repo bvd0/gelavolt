@@ -1,7 +1,7 @@
 package game.ui;
 
 import kha.Color;
-import ui.ControlDisplay;
+import ui.ControlHint;
 import game.gelos.Gelo;
 import kha.math.FastMatrix3;
 import ui.Menu;
@@ -24,7 +24,7 @@ class GroupEditorPage implements IMenuPage {
 
 	public final header = "Edit Gelo Group";
 
-	public final controlDisplays: Array<ControlDisplay> = [
+	public final controlHints: Array<ControlHint> = [
 		{actions: [MENU_LEFT, MENU_UP, MENU_DOWN, MENU_RIGHT], description: "Select"},
 		{actions: [BACK], description: "Back"},
 		{actions: [CONFIRM], description: "Cycle Colors"}
@@ -84,7 +84,7 @@ class GroupEditorPage implements IMenuPage {
 				if (positionID > 3)
 					positionID--;
 
-				group.others[positionID].color = Std.int(negativeMod(group.others[positionID].color + 1, 6));
+				group.others.data[positionID].color = Std.int(negativeMod(group.others.data[positionID].color + 1, 6));
 			}
 		}
 	}

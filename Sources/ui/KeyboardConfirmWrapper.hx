@@ -6,37 +6,38 @@ import kha.Assets;
 import kha.Font;
 import kha.graphics2.Graphics;
 
+@:structInit
+@:build(game.Macros.buildOptionsClass(KeyboardConfirmWrapper))
+class KeyboardConfirmWrapperOptions {}
+
 class KeyboardConfirmWrapper implements IMenuPage {
 	static inline final FONT_SIZE = 64;
 	static final TEXT = "Press any button to continue";
 
-	final font: Font;
+	@inject final keyboardDevice: KeyboardInputDevice;
+	@inject final pageBuilder: Void->IMenuPage;
 
-	final keyboardDevice: KeyboardInputDevice;
-	final pageBuilder: Void->IMenuPage;
+	final font: Font;
 
 	var menu: Menu;
 	var fontSize: Int;
-	var fontHeight: Float;
 
 	public final header: String;
 
-	public var controlDisplays(default, null): Array<ControlDisplay>;
+	public var controlHints(default, null): Array<ControlHint>;
 
 	public function new(opts: KeyboardConfirmWrapperOptions) {
-		font = Assets.fonts.Pixellari;
+		game.Macros.initFromOpts();
 
-		keyboardDevice = opts.keyboardDevice;
-		pageBuilder = opts.pageBuilder;
+		font = Assets.fonts.Pixellari;
 
 		header = "Confirm Keyboard";
 
-		controlDisplays = [{actions: [BACK], description: "Back"}];
+		controlHints = [{actions: [BACK], description: "Back"}];
 	}
 
 	public function onResize() {
 		fontSize = Std.int(FONT_SIZE * menu.scaleManager.smallerScale);
-		fontHeight = font.height(fontSize);
 	}
 
 	public function onShow(menu: Menu) {

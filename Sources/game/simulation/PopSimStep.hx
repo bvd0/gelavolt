@@ -1,26 +1,38 @@
 package game.simulation;
 
+import game.simulation.SimulationStep.SimulationStepOptions;
 import game.garbage.trays.GarbageTray;
 import kha.Assets;
 import game.geometries.BoardGeometries;
 import kha.graphics2.Graphics;
 import game.fields.FieldPopInfo;
 
-class PopSimStep extends SimulationStep {
-	final garbageDisplay: GarbageTray;
-	final accumulatedDisplay: GarbageTray;
+@:structInit
+@:build(game.Macros.buildOptionsClass(PopSimStep))
+class PopSimStepOptions extends SimulationStepOptions {}
 
-	public final popInfo: FieldPopInfo;
-	public final linkInfo: LinkInfo;
+class PopSimStep extends SimulationStep {
+	@inject final garbageDisplay: GarbageTray;
+	@inject final accumulatedDisplay: GarbageTray;
+
+	@inject public final popInfo: FieldPopInfo;
+	@inject public final linkInfo: LinkInfo;
 
 	public function new(opts: PopSimStepOptions) {
 		super(POP, opts);
 
-		garbageDisplay = opts.garbageDisplay;
-		accumulatedDisplay = opts.accumulatedDisplay;
+		game.Macros.initFromOpts();
+	}
 
-		popInfo = opts.popInfo;
-		linkInfo = opts.linkInfo;
+	override function copy(): SimulationStep {
+		return new PopSimStep({
+			chain: chain,
+			fieldSnapshot: fieldSnapshot.copy(),
+			garbageDisplay: garbageDisplay.copy(),
+			accumulatedDisplay: accumulatedDisplay.copy(),
+			popInfo: popInfo.copy(),
+			linkInfo: linkInfo
+		});
 	}
 
 	override function renderLabel(g: Graphics, y: Float, alpha: Float) {

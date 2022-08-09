@@ -1,8 +1,8 @@
 package game.garbage;
 
-import game.mediators.TransformationMediator;
+import game.screens.GameScreen;
 import kha.Color;
-import kha.math.Random;
+import game.copying.CopyableRNG;
 import game.particles.PixelFloatParticle;
 import utils.Utils;
 import game.mediators.GarbageTargetMediator;
@@ -14,33 +14,32 @@ import utils.Point;
 import game.particles.GarbageBulletParticle;
 import game.particles.ParticleManager;
 import kha.graphics2.Graphics;
-import game.gelos.GeloPoint;
+import game.gelos.ScreenGeloPoint;
 import game.rules.Rule;
 
+@:structInit
+@:build(game.Macros.buildOptionsClass(GarbageManager))
+class GarbageManagerOptions {}
+
 class GarbageManager implements IGarbageManager {
-	final rule: Rule;
-	final rng: Random;
-	final prefsSettings: PrefsSettings;
-	final particleManager: ParticleManager;
-	final geometries: BoardGeometries;
-	final tray: GarbageTray;
-	final target: GarbageTargetMediator;
+	@inject final rule: Rule;
+	@inject final rng: CopyableRNG;
+	@inject final prefsSettings: PrefsSettings;
+	@inject final particleManager: ParticleManager;
+	@inject final geometries: BoardGeometries;
+	@inject final tray: GarbageTray;
+	@inject final target: GarbageTargetMediator;
 
-	var currentGarbage: Int;
-	var confirmedGarbage: Int;
-	var graceT: Int;
+	@copy var currentGarbage: Int;
+	@copy var confirmedGarbage: Int;
+	@copy var graceT: Int;
 
-	public var canReceiveGarbage: Bool;
 	public var droppableGarbage(get, never): Int;
 
+	@copy public var canReceiveGarbage: Bool;
+
 	public function new(opts: GarbageManagerOptions) {
-		rule = opts.rule;
-		rng = opts.rng;
-		prefsSettings = opts.prefsSettings;
-		particleManager = opts.particleManager;
-		geometries = opts.geometries;
-		tray = opts.tray;
-		target = opts.target;
+		game.Macros.initFromOpts();
 
 		currentGarbage = 0;
 		confirmedGarbage = 0;
@@ -58,8 +57,6 @@ class GarbageManager implements IGarbageManager {
 		return Std.int(Math.min(confirmedGarbage, rule.garbageDropLimit));
 	}
 
-	final function updateNothing() {}
-
 	function reduceGarbage(amount: Int) {
 		currentGarbage = Std.int(Math.max(0, currentGarbage - amount));
 		confirmedGarbage = Utils.intClamp(0, confirmedGarbage, currentGarbage);
@@ -70,18 +67,16 @@ class GarbageManager implements IGarbageManager {
 			particleManager.add(FRONT, PixelFloatParticle.create({
 				x: absTrayCenter.x,
 				y: absTrayCenter.y,
-				maxT: rng.GetIn(20, 30),
+				maxT: rng.data.GetIn(20, 30),
 				color: color,
-				dx: Math.cos(i / 4) * rng.GetIn(8, 12),
-				dy: Math.sin(i / 4) * rng.GetIn(8, 12),
-				size: Gelo.HALFSIZE * rng.GetFloatIn(0.25, 1.75)
+				dx: Math.cos(i / 4) * rng.data.GetIn(8, 12),
+				dy: Math.sin(i / 4) * rng.data.GetIn(8, 12),
+				size: Gelo.HALFSIZE * rng.data.GetFloatIn(0.25, 1.75)
 			}));
 		}
 	}
 
-	// Note: GeloPoint are screen coordinates not field
-	// TODO: Make FieldGeloPoint and ScreenGeloPoint that extend IntPoint/Point
-	function sendAttackBullet(beginners: Array<GeloPoint>) {
+	function sendAttackBullet(beginners: Array<ScreenGeloPoint>) {
 		final absPos = geometries.absolutePosition;
 
 		final control: Point = switch (geometries.orientation) {
@@ -97,8 +92,6 @@ class GarbageManager implements IGarbageManager {
 			final primaryColor = prefsSettings.primaryColors[b.color];
 
 			particleManager.add(FRONT, GarbageBulletParticle.create({
-				particleManager: particleManager,
-				layer: FRONT,
 				begin: absPos.add({x: b.x, y: b.y}),
 				beginScale: 1, // TODO
 				control: absPos.add(control),
@@ -114,7 +107,7 @@ class GarbageManager implements IGarbageManager {
 		}
 	}
 
-	function sendOffsetBullet(beginners: Array<GeloPoint>) {
+	function sendOffsetBullet(beginners: Array<ScreenGeloPoint>) {
 		final absPos = geometries.absolutePosition;
 		final scale = geometries.scale;
 
@@ -128,8 +121,6 @@ class GarbageManager implements IGarbageManager {
 			final primaryColor = prefsSettings.primaryColors[b.color];
 
 			particleManager.add(FRONT, GarbageBulletParticle.create({
-				particleManager: particleManager,
-				layer: FRONT,
 				begin: absBegin,
 				beginScale: scale,
 				control: absCenter,
@@ -145,7 +136,7 @@ class GarbageManager implements IGarbageManager {
 		}
 	}
 
-	function sendCounterBullet(beginners: Array<GeloPoint>) {
+	function sendCounterBullet(beginners: Array<ScreenGeloPoint>) {
 		final absPos = geometries.absolutePosition;
 		final scale = geometries.scale;
 
@@ -154,7 +145,7 @@ class GarbageManager implements IGarbageManager {
 		final absTrayCenter = absPos.add(trayCenter);
 
 		final attackControl: Point = {
-			x: TransformationMediator.PLAY_AREA_DESIGN_WIDTH / 2,
+			x: GameScreen.PLAY_AREA_DESIGN_WIDTH / 2,
 			y: 0
 		};
 
@@ -167,8 +158,6 @@ class GarbageManager implements IGarbageManager {
 			final absBegin = absPos.add({x: b.x, y: b.y});
 
 			particleManager.add(FRONT, GarbageBulletParticle.create({
-				particleManager: particleManager,
-				layer: FRONT,
 				begin: absBegin,
 				beginScale: scale,
 				control: absCenter,
@@ -182,8 +171,6 @@ class GarbageManager implements IGarbageManager {
 					addCollisionParticle(absTrayCenter, primaryColor);
 
 					particleManager.add(FRONT, GarbageBulletParticle.create({
-						particleManager: particleManager,
-						layer: FRONT,
 						begin: absTrayCenter,
 						beginScale: scale,
 						control: attackControl,
@@ -214,7 +201,7 @@ class GarbageManager implements IGarbageManager {
 		tray.startAnimation(currentGarbage);
 	}
 
-	public function sendGarbage(amount: Int, beginners: Array<GeloPoint>) {
+	public function sendGarbage(amount: Int, beginners: Array<ScreenGeloPoint>) {
 		if (amount == 0)
 			return;
 

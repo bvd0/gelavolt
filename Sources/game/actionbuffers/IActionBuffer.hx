@@ -1,8 +1,8 @@
 package game.actionbuffers;
 
-interface IActionBuffer {
-	public var latestAction(default, null): ActionSnapshot;
+import game.copying.ICopyFrom;
 
-	public function update(): Void;
+interface IActionBuffer extends ICopyFrom {
+	public function update(): ActionSnapshot;
 	public function exportReplayData(): ReplayData;
 }

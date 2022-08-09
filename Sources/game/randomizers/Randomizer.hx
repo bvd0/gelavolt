@@ -1,28 +1,29 @@
 package game.randomizers;
 
+import game.copying.ICopyFrom;
+import game.copying.CopyableRNG;
 import save_data.PrefsSettings;
-import game.gelos.OtherGeloOptions;
+import game.gelos.OtherGelo.OtherGeloOptions;
 import game.gelogroups.GeloGroupData;
 import game.gelogroups.GeloGroupType;
-import kha.math.Random;
-
-using game.RollbackableRandom;
-
 import game.gelos.GeloColor;
 import haxe.ds.Vector;
 import game.randomizers.RandomizerPool;
 
-class Randomizer {
-	final rng: Random;
-	final prefsSettings: PrefsSettings;
+@:structInit
+@:build(game.Macros.buildOptionsClass(Randomizer))
+class RandomizerOptions {}
+
+class Randomizer implements ICopyFrom {
+	@inject final rng: CopyableRNG;
+	@inject final prefsSettings: PrefsSettings;
 
 	var pools: Map<RandomizerPool, Vector<GeloColor>>;
 
-	public var currentPool: RandomizerPool;
+	@copy public var currentPool: RandomizerPool;
 
 	public function new(opts: RandomizerOptions) {
-		rng = opts.rng;
-		prefsSettings = opts.prefsSettings;
+		game.Macros.initFromOpts();
 	}
 
 	function tsu() {
@@ -35,7 +36,7 @@ class Randomizer {
 		// Shuffle color set
 		for (_ in 0...5) {
 			while (--index >= 0) {
-				swapWith = rng.GetUpTo(index);
+				swapWith = rng.data.GetUpTo(index);
 
 				temp = colorSet[index];
 				colorSet[index] = colorSet[swapWith];
@@ -56,7 +57,7 @@ class Randomizer {
 			index = 256;
 
 			while (--index >= 0) {
-				swapWith = rng.GetUpTo(255);
+				swapWith = rng.data.GetUpTo(255);
 
 				temp = pool[index];
 				pool[index] = pool[swapWith];
@@ -90,18 +91,18 @@ class Randomizer {
 
 		var index = 0;
 		var mainColor: Null<GeloColor>;
-		var otherOptions: Vector<OtherGeloOptions>;
+		var otherOptions: Array<OtherGeloOptions>;
 
 		while (index < 256) {
 			for (type in dropset) {
-				otherOptions = new Vector<OtherGeloOptions>(8);
+				otherOptions = [];
 
 				for (i in 0...8) {
-					otherOptions.set(i, {
+					otherOptions[i] = {
 						prefsSettings: prefsSettings,
 						color: EMPTY,
 						positionID: i
-					});
+					}
 				}
 
 				switch (type) {
@@ -116,10 +117,7 @@ class Randomizer {
 						otherOptions[1].color = otherColor;
 				}
 
-				groups.push({
-					mainColor: mainColor,
-					others: otherOptions
-				});
+				groups.push(new GeloGroupData(mainColor, otherOptions));
 			}
 		}
 

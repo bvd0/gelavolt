@@ -1,10 +1,9 @@
 package game.ui;
 
-import game.mediators.ControlDisplayContainer;
+import game.ui.PauseMenu.PauseMenuOptions;
+import game.mediators.ControlHintContainer;
 import ui.YesNoWidget;
 import save_data.EndlessSettings;
-import game.gamemodes.EndlessGameMode;
-import haxe.Serializer;
 import game.actionbuffers.IActionBuffer;
 import ui.ButtonWidget;
 import save_data.SaveManager;
@@ -23,17 +22,17 @@ import sys.io.File;
 
 using DateTools;
 
+@:structInit
+@:build(game.Macros.buildOptionsClass(EndlessPauseMenu))
+class EndlessPauseMenuOptions extends PauseMenuOptions {}
+
 class EndlessPauseMenu extends PauseMenu {
-	final gameMode: EndlessGameMode;
-	final endlessSettings: EndlessSettings;
-	final controlDisplayContainer: ControlDisplayContainer;
-	final actionBuffer: IActionBuffer;
+	@inject final endlessSettings: EndlessSettings;
+	@inject final controlHintContainer: ControlHintContainer;
+	@inject final actionBuffer: IActionBuffer;
 
 	public function new(opts: EndlessPauseMenuOptions) {
-		gameMode = opts.gameMode;
-		endlessSettings = opts.endlessSettings;
-		controlDisplayContainer = opts.controlDisplayContainer;
-		actionBuffer = opts.actionBuffer;
+		game.Macros.initFromOpts();
 
 		super(opts);
 	}
@@ -49,7 +48,7 @@ class EndlessPauseMenu extends PauseMenu {
 					defaultValue: endlessSettings.showControlHints,
 					onChange: (value) -> {
 						endlessSettings.showControlHints = value;
-						controlDisplayContainer.isVisible = value;
+						controlHintContainer.isVisible = value;
 
 						SaveManager.saveProfiles();
 					}
@@ -79,29 +78,40 @@ class EndlessPauseMenu extends PauseMenu {
 				new ButtonWidget({
 					title: "Save Replay",
 					description: [
-						#if kha_html5 "Download A Replay File Of This Session", #else "Save A Replay File To GelaVolt's Folder",
+						#if kha_html5
+						"Download A Replay File Of This Session",
+						#else
+						"Save A Replay File To GelaVolt's Folder",
 						#end
 						"",
 						"To View It, Just Drag & Drop The File",
 						"On The GelaVolt Window",
 					],
 					callback: () -> {
-						final data = gameMode.copyWithReplay(actionBuffer.exportReplayData());
-						final serialized = Serializer.run(data);
-						final filename = 'replay-${Date.now().format("%Y-%m-%d_%H-%M")}.gvr';
+						/*
+							final ser = new Serializer();
 
-						#if js
-						final file = new File([Serializer.run(data)], "replay.gvr");
-						final uri = URL.createObjectURL(file);
+							ser.serialize(rule);
 
-						final el = Browser.document.createAnchorElement();
+							final replayData: Map<Int, Int> = actionBuffer.exportReplayData();
 
-						el.href = uri;
-						el.setAttribute("download", filename);
-						el.click();
-						#else
-						File.saveContent(filename, serialized);
-						#end
+							final data = gameMode.copyWithReplay(actionBuffer.exportReplayData());
+							final serialized = Serializer.run(data);
+							final filename = 'replay-${Date.now().format("%Y-%m-%d_%H-%M")}.gvr';
+
+							#if js
+							final file = new File([Serializer.run(data)], "replay.gvr");
+							final uri = URL.createObjectURL(file);
+
+							final el = Browser.document.createAnchorElement();
+
+							el.href = uri;
+							el.setAttribute("download", filename);
+							el.click();
+							#else
+							File.saveContent(filename, serialized);
+							#end
+						 */
 					}
 				})
 			]

@@ -1,17 +1,16 @@
 package game.gamestatebuilders;
 
-import game.mediators.ControlDisplayContainer;
-import game.states.ControlDisplayGameState;
+import game.actionbuffers.ReplayData;
+import game.rules.Rule;
+import game.mediators.ControlHintContainer;
 import game.boards.EndlessBoard;
 import input.IInputDevice;
 import game.ui.PauseMenu;
 import game.ui.ReplayPauseMenu;
-import game.mediators.TransformationMediator;
 import game.mediators.FrameCounter;
 import save_data.Profile;
 import game.actionbuffers.ReplayActionBuffer;
 import game.actionbuffers.LocalActionBuffer;
-import game.gamemodes.EndlessGameMode;
 import game.actionbuffers.IActionBuffer;
 import game.ui.EndlessPauseMenu;
 import game.boardstates.EndlessBoardState;
@@ -23,60 +22,76 @@ import game.garbage.trays.GarbageTray;
 import game.simulation.NullLinkInfoBuilder;
 import game.geometries.BoardGeometries;
 import game.boards.SingleStateBoard;
-import game.all_clear.AllClearManager;
+import game.AllClearManager;
 import game.gelogroups.GeloGroup;
 import game.fields.Field;
 import game.simulation.ChainSimulator;
-import game.score.ScoreManager;
+import game.ScoreManager;
 import game.mediators.BorderColorMediator;
 import game.mediators.PauseMediator;
 import game.rules.MarginTimeManager;
 import game.particles.ParticleManager;
 import game.randomizers.Randomizer;
-import kha.math.Random;
+import game.copying.CopyableRNG;
 import game.states.GameState;
+import game.mediators.SaveGameStateMediator;
 
-class EndlessGameStateBuilder {
-	final gameMode: EndlessGameMode;
-	final transformMediator: TransformationMediator;
-	final inputDevice: IInputDevice;
+@:structInit
+@:build(game.Macros.buildOptionsClass(EndlessGameStateBuilder))
+@:build(game.Macros.addGameStateBuilderType(ENDLESS))
+class EndlessGameStateBuilderOptions implements IGameStateBuilderOptions {}
 
-	var rng: Random;
-	var randomizer: Randomizer;
+@:build(game.Macros.addGameStateBuildMethod())
+class EndlessGameStateBuilder implements IGameStateBuilder {
+	@inject final rngSeed: Int;
+	@inject final rule: Rule;
+	@inject final inputDevice: IInputDevice;
+	@inject final replayData: Null<ReplayData>;
 
-	var particleManager: ParticleManager;
-	var marginManager: MarginTimeManager;
-	var frameCounter: FrameCounter;
+	@copy var rng: CopyableRNG;
+	@copy var randomizer: Randomizer;
 
-	var pauseMediator: PauseMediator;
+	@copy var particleManager: ParticleManager;
+	@copy var marginManager: MarginTimeManager;
+	@copy var frameCounter: FrameCounter;
+
 	var borderColorMediator: BorderColorMediator;
 
-	var scoreManager: ScoreManager;
-	var chainSim: ChainSimulator;
-	var chainCounter: ChainCounter;
-	var field: Field;
-	var queue: Queue;
-	var actionBuffer: IActionBuffer;
-	var geloGroup: GeloGroup;
-	var allClearManager: AllClearManager;
+	@copy var scoreManager: ScoreManager;
+	@copy var chainSim: ChainSimulator;
+	@copy var chainCounter: ChainCounter;
+	@copy var field: Field;
+	@copy var queue: Queue;
+	@copy var actionBuffer: IActionBuffer;
+	@copy var geloGroup: GeloGroup;
+	@copy var allClearManager: AllClearManager;
 
-	var boardState: EndlessBoardState;
+	@copy var boardState: EndlessBoardState;
 
-	var board: SingleStateBoard;
+	@copy var board: SingleStateBoard;
 
-	var pauseMenu: PauseMenu;
+	public var pauseMediator(null, default): PauseMediator;
+	@copy public var controlHintContainer(null, default): ControlHintContainer;
+	public var saveGameStateMediator(null, default): SaveGameStateMediator;
 
-	var controlDisplayContainer: ControlDisplayContainer;
-	var gameState: GameState;
+	public var gameState(default, null): GameState;
+	public var pauseMenu(default, null): PauseMenu;
 
 	public function new(opts: EndlessGameStateBuilderOptions) {
-		gameMode = opts.gameMode;
-		transformMediator = opts.transformMediator;
-		inputDevice = opts.inputDevice;
+		game.Macros.initFromOpts();
+	}
+
+	public function copy() {
+		return new EndlessGameStateBuilder({
+			inputDevice: inputDevice,
+			rule: rule,
+			rngSeed: rngSeed,
+			replayData: replayData
+		});
 	}
 
 	inline function buildRNG() {
-		rng = new Random(gameMode.rngSeed);
+		rng = new CopyableRNG(rngSeed);
 	}
 
 	inline function buildRandomizer() {
@@ -94,22 +109,16 @@ class EndlessGameStateBuilder {
 	}
 
 	inline function buildMarginManager() {
-		marginManager = new MarginTimeManager(gameMode.rule);
+		marginManager = new MarginTimeManager(rule);
 	}
 
 	inline function buildFrameCounter() {
 		frameCounter = new FrameCounter();
 	}
 
-	inline function buildControlDisplayContainer() {
-		controlDisplayContainer = new ControlDisplayContainer();
-
-		controlDisplayContainer.isVisible = Profile.primary.endlessSettings.showControlHints;
-		controlDisplayContainer.value = [{actions: [QUICK_RESTART], description: "Quick Restart"}];
-	}
-
-	inline function buildPauseMediator() {
-		pauseMediator = new PauseMediator();
+	inline function initControlHintContainer() {
+		controlHintContainer.isVisible = Profile.primary.endlessSettings.showControlHints;
+		controlHintContainer.value.data.push({actions: [QUICK_RESTART], description: "Quick Restart"});
 	}
 
 	inline function buildBorderColorMediator() {
@@ -118,16 +127,16 @@ class EndlessGameStateBuilder {
 
 	inline function buildScoreManager() {
 		scoreManager = new ScoreManager({
-			rule: gameMode.rule,
+			rule: rule,
 			orientation: LEFT
 		});
 	}
 
 	inline function buildChainSim() {
 		chainSim = new ChainSimulator({
-			rule: gameMode.rule,
+			rule: rule,
 			linkBuilder: new LinkInfoBuilder({
-				rule: gameMode.rule,
+				rule: rule,
 				marginManager: marginManager
 			}),
 			garbageDisplay: GarbageTray.create(Profile.primary.prefs),
@@ -140,7 +149,7 @@ class EndlessGameStateBuilder {
 	}
 
 	inline function buildField() {
-		field = Field.create({
+		field = new Field({
 			prefsSettings: Profile.primary.prefs,
 			columns: 6,
 			playAreaRows: 12,
@@ -154,10 +163,11 @@ class EndlessGameStateBuilder {
 	}
 
 	inline function buildActionBuffer() {
-		if (gameMode.replayData == null) {
+		if (replayData == null) {
 			actionBuffer = new LocalActionBuffer({
 				frameCounter: frameCounter,
-				inputDevice: inputDevice
+				inputDevice: inputDevice,
+				frameDelay: 0
 			});
 
 			return;
@@ -166,7 +176,8 @@ class EndlessGameStateBuilder {
 		actionBuffer = new ReplayActionBuffer({
 			frameCounter: frameCounter,
 			inputDevice: inputDevice,
-			replayData: gameMode.replayData
+			replayData: replayData,
+			frameDelay: 0
 		});
 	}
 
@@ -175,11 +186,11 @@ class EndlessGameStateBuilder {
 
 		geloGroup = new GeloGroup({
 			field: field,
-			rule: gameMode.rule,
+			rule: rule,
 			prefsSettings: prefsSettings,
 			scoreManager: scoreManager,
 			chainSim: new ChainSimulator({
-				rule: gameMode.rule,
+				rule: rule,
 				linkBuilder: NullLinkInfoBuilder.instance,
 				garbageDisplay: GarbageTray.create(prefsSettings),
 				accumulatedDisplay: GarbageTray.create(prefsSettings)
@@ -198,9 +209,8 @@ class EndlessGameStateBuilder {
 
 	inline function buildBoardState() {
 		boardState = new EndlessBoardState({
-			rule: gameMode.rule,
+			rule: rule,
 			prefsSettings: Profile.primary.prefs,
-			transformMediator: transformMediator,
 			rng: rng,
 			geometries: BoardGeometries.CENTERED,
 			particleManager: particleManager,
@@ -222,22 +232,21 @@ class EndlessGameStateBuilder {
 
 	inline function buildBoard() {
 		board = new EndlessBoard({
-			actionBuffer: actionBuffer,
 			pauseMediator: pauseMediator,
 			inputDevice: inputDevice,
+			state: boardState,
 			endlessState: boardState
 		});
 	}
 
 	inline function buildPauseMenu() {
-		if (gameMode.replayData == null) {
+		if (replayData == null) {
 			pauseMenu = new EndlessPauseMenu({
 				pauseMediator: pauseMediator,
 				prefsSettings: Profile.primary.prefs,
 				endlessSettings: Profile.primary.endlessSettings,
-				controlDisplayContainer: controlDisplayContainer,
+				controlHintContainer: controlHintContainer,
 				actionBuffer: actionBuffer,
-				gameMode: gameMode,
 			});
 
 			return;
@@ -251,56 +260,18 @@ class EndlessGameStateBuilder {
 	}
 
 	inline function buildGameState() {
-		gameState = new ControlDisplayGameState({
+		gameState = new GameState({
 			particleManager: particleManager,
 			marginManager: marginManager,
 			boardManager: new SingleBoardManager({
-				transformMediator: transformMediator,
 				geometries: BoardGeometries.CENTERED,
 				board: board
 			}),
-			pauseMenu: pauseMenu,
 			frameCounter: frameCounter,
-			controlDisplayContainer: controlDisplayContainer
 		});
 	}
 
 	inline function wireMediators() {
-		pauseMediator.gameState = gameState;
-		borderColorMediator.boardState = boardState;
-	}
-
-	public function build() {
-		buildRNG();
-		buildRandomizer();
-
-		buildParticleManager();
-		buildMarginManager();
-		buildFrameCounter();
-		buildControlDisplayContainer();
-
-		buildPauseMediator();
-		buildBorderColorMediator();
-
-		buildScoreManager();
-		buildChainSim();
-		buildChainCounter();
-		buildField();
-		buildQueue();
-		buildActionBuffer();
-		buildGeloGroup();
-		buildAllClearManager();
-
-		buildBoardState();
-
-		buildBoard();
-
-		buildPauseMenu();
-
-		buildGameState();
-
-		wireMediators();
-
-		return gameState;
+		borderColorMediator.changeColor = boardState.changeBorderColor;
 	}
 }

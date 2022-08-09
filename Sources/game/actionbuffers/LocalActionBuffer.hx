@@ -3,26 +3,43 @@ package game.actionbuffers;
 import input.IInputDevice;
 import game.mediators.FrameCounter;
 
+@:structInit
+@:build(game.Macros.buildOptionsClass(LocalActionBuffer))
+class LocalActionBufferOptions {}
+
 class LocalActionBuffer implements IActionBuffer {
-	final frameCounter: FrameCounter;
-	final inputDevice: IInputDevice;
+	@inject final frameCounter: FrameCounter;
+	@inject final inputDevice: IInputDevice;
+	@inject final frameDelay: Int;
+
 	final actions: Map<Int, ActionSnapshot>;
 
-	public var latestAction(default, null): ActionSnapshot;
-
 	public function new(opts: LocalActionBufferOptions) {
-		frameCounter = opts.frameCounter;
-		inputDevice = opts.inputDevice;
-		actions = [];
+		game.Macros.initFromOpts();
 
-		latestAction = {
-			shiftLeft: false,
-			shiftRight: false,
-			rotateLeft: false,
-			rotateRight: false,
-			softDrop: false,
-			hardDrop: false
-		};
+		actions = [
+			0 => {
+				shiftLeft: false,
+				shiftRight: false,
+				rotateLeft: false,
+				rotateRight: false,
+				softDrop: false,
+				hardDrop: false
+			}
+		];
+	}
+
+	function getAction(frame: Int) {
+		while (frame-- >= 0) {
+			if (actions.exists(frame))
+				return actions[frame];
+		}
+
+		return actions[0];
+	}
+
+	function addAction(frame: Int, action: ActionSnapshot) {
+		actions[frame + frameDelay] = action;
 	}
 
 	public function update() {
@@ -35,11 +52,15 @@ class LocalActionBuffer implements IActionBuffer {
 			hardDrop: inputDevice.getAction(HARD_DROP)
 		};
 
-		if (latestAction.isNotEqual(currentAction)) {
-			actions[frameCounter.value] = currentAction;
+		var frame = frameCounter.value;
+		var latestAction = getAction(frame);
 
+		if (latestAction.isNotEqual(currentAction)) {
+			addAction(frameCounter.value, currentAction);
 			latestAction = currentAction;
 		}
+
+		return latestAction;
 	}
 
 	public function exportReplayData() {

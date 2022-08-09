@@ -1,7 +1,7 @@
 package game.ui;
 
-import auto_attack.AutoAttackLinkData;
-import auto_attack.AutoAttackManager;
+import game.auto_attack.AutoAttackLinkData;
+import game.auto_attack.AutoAttackManager;
 import ui.IListWidget;
 import ui.YesNoWidget;
 import game.gelos.GeloColor;
@@ -77,7 +77,7 @@ class AutoAttackLinkPage extends ListMenuPage {
 					}),
 				];
 
-				if (data == autoAttackManager.linkData[0]) {
+				if (data == autoAttackManager.linkData.data[0]) {
 					widgets.push(new YesNoWidget({
 						title: "Send All Clear Bonus",
 						description: ["Whether To Send All Clear Bonus On This Link"],

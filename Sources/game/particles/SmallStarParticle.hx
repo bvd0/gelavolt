@@ -5,6 +5,10 @@ import kha.Color;
 import kha.Assets;
 import kha.math.FastMatrix3;
 
+@:structInit
+@:build(game.Macros.buildOptionsClass(SmallStarParticle))
+class SmallStarParticleOptions {}
+
 class SmallStarParticle implements IParticle {
 	public static function create(opts: SmallStarParticleOptions) {
 		final p = new SmallStarParticle(opts);
@@ -16,22 +20,24 @@ class SmallStarParticle implements IParticle {
 		return p;
 	}
 
-	final x: Float;
-	final y: Float;
-	final color: Color;
+	@inject final x: Float;
+	@inject final y: Float;
+	@inject final color: Color;
 
-	var t: Int;
+	@copy var t: Int;
 
-	public var isAnimationFinished(default, null): Bool;
+	@copy public var isAnimationFinished(default, null): Bool;
 
 	function new(opts: SmallStarParticleOptions) {
-		x = opts.x;
-		y = opts.y;
-		color = opts.color;
+		game.Macros.initFromOpts();
+	}
 
-		t = 0;
-
-		isAnimationFinished = false;
+	public function copy() {
+		return new SmallStarParticle({
+			x: x,
+			y: y,
+			color: color
+		}).copyFrom(this);
 	}
 
 	public function update() {

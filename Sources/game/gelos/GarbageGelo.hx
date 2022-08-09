@@ -1,5 +1,7 @@
 package game.gelos;
 
+import game.gelos.FieldGelo.FieldGeloOptions;
+
 class GarbageGelo extends FieldGelo {
 	public static function create(opts: FieldGeloOptions) {
 		final p = new GarbageGelo(opts);
@@ -13,23 +15,11 @@ class GarbageGelo extends FieldGelo {
 		FieldGelo.init(p, opts);
 	}
 
-	public static function copyTo(src: GarbageGelo, dest: GarbageGelo) {
-		FieldGelo.copyTo(src, dest);
-	}
-
-	override function copyFrom(src: Gelo) {
-		copyTo(cast(src, GarbageGelo), this);
-	}
-
 	override function copy(): FieldGelo {
-		final p = new GarbageGelo({
+		return new GarbageGelo({
 			prefsSettings: prefsSettings,
 			color: color
-		});
-
-		p.copyFrom(this);
-
-		return p;
+		}).copyFrom(this);
 	}
 
 	override function startBouncing(type: GeloBounceType) {

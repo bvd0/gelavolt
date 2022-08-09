@@ -1,6 +1,6 @@
 package game.ui;
 
-import ui.ControlDisplay;
+import ui.ControlHint;
 import utils.Point;
 import kha.math.FastMatrix3;
 import game.gelos.Gelo;
@@ -10,11 +10,15 @@ import kha.graphics2.Graphics;
 import ui.IMenuPage;
 import utils.Utils.negativeMod;
 
+@:structInit
+@:build(game.Macros.buildOptionsClass(QueueEditorPage))
+class QueueEditorPageOptions {}
+
 class QueueEditorPage implements IMenuPage {
 	static inline final FONT_SIZE = 72;
 
-	final queue: Queue;
-	final groupEditor: GroupEditorPage;
+	@inject final queue: Queue;
+	@inject final groupEditor: GroupEditorPage;
 
 	var menu: Menu;
 
@@ -28,15 +32,14 @@ class QueueEditorPage implements IMenuPage {
 
 	public final header = "Edit Queue";
 
-	public final controlDisplays: Array<ControlDisplay> = [
+	public final controlHints: Array<ControlHint> = [
 		{actions: [MENU_LEFT, MENU_UP, MENU_DOWN, MENU_RIGHT], description: "Select"},
 		{actions: [BACK], description: "Back"},
 		{actions: [CONFIRM], description: "Edit"}
 	];
 
 	public function new(opts: QueueEditorPageOptions) {
-		queue = opts.queue;
-		groupEditor = opts.groupEditor;
+		game.Macros.initFromOpts();
 
 		selectionX = 0;
 		selectionY = 0;
@@ -56,7 +59,7 @@ class QueueEditorPage implements IMenuPage {
 	}
 
 	function selectHorizontal(delta: Int) {
-		final groupCount = queue.groups.length;
+		final groupCount = queue.groups.data.length;
 
 		final d = selectionY * -7 + groupCount;
 		final mod = Std.int(Math.min(d, 7));
@@ -65,7 +68,7 @@ class QueueEditorPage implements IMenuPage {
 	}
 
 	function selectVertical(delta: Int) {
-		selectionY = Std.int(negativeMod(selectionY + delta, Std.int(queue.groups.length / 7) + 1));
+		selectionY = Std.int(negativeMod(selectionY + delta, Std.int(queue.groups.data.length / 7) + 1));
 	}
 
 	public function onResize() {
@@ -86,7 +89,7 @@ class QueueEditorPage implements IMenuPage {
 			selectHorizontal(1);
 		}
 
-		final groupCount = queue.groups.length;
+		final groupCount = queue.groups.data.length;
 		final maxRows = Std.int(groupCount / 7);
 		final currentRow = Std.int(minView / 7);
 
@@ -137,7 +140,7 @@ class QueueEditorPage implements IMenuPage {
 
 		for (i in 0...14) {
 			final index = minView + i;
-			final group = groups[index];
+			final group = groups.data[index];
 
 			if (group == null)
 				break;

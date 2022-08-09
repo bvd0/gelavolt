@@ -1,12 +1,17 @@
 package game.particles;
 
+import game.copying.ICopyFrom;
+import game.copying.CopyableArray;
 import kha.graphics2.Graphics;
 
-class ParticleManager {
-	final backParticles: Array<IParticle> = [];
-	final frontParticles: Array<IParticle> = [];
+class ParticleManager implements ICopyFrom {
+	@copy final backParticles: CopyableArray<IParticle>;
+	@copy final frontParticles: CopyableArray<IParticle>;
 
-	public function new() {}
+	public function new() {
+		backParticles = new CopyableArray([]);
+		frontParticles = new CopyableArray([]);
+	}
 
 	function updateArray(arr: Array<IParticle>) {
 		// Reverse-iterate to remove elements mid-iteration
@@ -31,22 +36,22 @@ class ParticleManager {
 	public function add(layer: ParticleLayer, particle: IParticle) {
 		switch (layer) {
 			case BACK:
-				backParticles.push(particle);
+				backParticles.data.push(particle);
 			case FRONT:
-				frontParticles.push(particle);
+				frontParticles.data.push(particle);
 		}
 	}
 
 	public function update() {
-		updateArray(backParticles);
-		updateArray(frontParticles);
+		updateArray(backParticles.data);
+		updateArray(frontParticles.data);
 	}
 
 	public function renderBackground(g: Graphics, alpha: Float) {
-		renderArray(g, backParticles, alpha);
+		renderArray(g, backParticles.data, alpha);
 	}
 
 	public function renderForeground(g: Graphics, alpha: Float) {
-		renderArray(g, frontParticles, alpha);
+		renderArray(g, frontParticles.data, alpha);
 	}
 }
