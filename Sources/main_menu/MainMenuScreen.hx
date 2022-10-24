@@ -5,7 +5,6 @@ import save_data.Profile;
 import main_menu.ui.MainMenuPage;
 import ui.Menu;
 import kha.graphics2.Graphics;
-import Screen.IScreen;
 import kha.graphics4.Graphics as Graphics4;
 
 class MainMenuScreen implements IScreen {
@@ -18,10 +17,13 @@ class MainMenuScreen implements IScreen {
 			prefsSettings: prefs,
 			positionFactor: 0,
 			widthFactor: 1,
+			backgroundOpacity: 0,
 			initialPage: new MainMenuPage(prefs)
 		});
 		menu.onShow(AnyInputDevice.instance);
 	}
+
+	public function dispose() {}
 
 	public function update() {
 		menu.update();

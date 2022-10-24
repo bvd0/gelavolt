@@ -1,18 +1,13 @@
 package;
 
-import game.gamestatebuilders.EndlessGameStateBuilder;
-import side_setup.VersusSideSetupScreen;
 import input.AnyInputDevice;
+import save_data.SaveManager;
 import input.InputDevice;
 import save_data.Profile;
-import main_menu.MainMenuScreen;
-import haxe.Unserializer;
-import save_data.SaveManager;
-import Screen.GlobalScreenSwitcher;
 import kha.Assets;
 import kha.Scheduler;
 import kha.System;
-#if js
+#if kha_html5
 import js.Browser.document;
 import js.Browser.window;
 import js.html.CanvasElement;
@@ -20,9 +15,11 @@ import kha.Macros;
 import js.html.FileReader;
 import js.html.DragEvent;
 import js.Browser;
+import lobby.LobbyPage;
 #else
 import kha.Window;
 import sys.FileSystem;
+import main_menu.MainMenuScreen;
 import sys.io.File;
 #end
 
@@ -92,6 +89,7 @@ class Main {
 				Profile.changePrimary(SaveManager.getProfile(0));
 
 				AnyInputDevice.init();
+				ScreenManager.init();
 
 				#if !kha_html5
 				Window.get(0).mode = SaveManager.graphics.fullscreen ? Fullscreen : Windowed;
@@ -99,7 +97,11 @@ class Main {
 
 				ScaleManager.screen.resize(System.windowWidth(), System.windowHeight());
 
-				GlobalScreenSwitcher.switchScreen(new MainMenuScreen());
+				#if kha_html5
+				LobbyPage.handleURLJoin();
+				#else
+				ScreenManager.switchScreen(new MainMenuScreen());
+				#end
 
 				#if kha_html5
 				Browser.window.ondrop = (ev: DragEvent) -> {
@@ -130,15 +132,15 @@ class Main {
 
 					accumulator += frameTime;
 
-					while (accumulator >= FIXED_UPDATE_DELTA) {
+					if (accumulator >= FIXED_UPDATE_DELTA) {
 						InputDevice.update();
-						GlobalScreenSwitcher.updateCurrent();
-						accumulator -= FIXED_UPDATE_DELTA;
+						ScreenManager.updateCurrent();
 					}
 
+					accumulator %= FIXED_UPDATE_DELTA;
 					alpha = accumulator / FIXED_UPDATE_DELTA;
 
-					GlobalScreenSwitcher.renderCurrent(frames[0], alpha);
+					ScreenManager.renderCurrent(frames[0], alpha);
 				});
 			});
 		});

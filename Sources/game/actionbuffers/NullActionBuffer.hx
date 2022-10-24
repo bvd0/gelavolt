@@ -12,6 +12,8 @@ class NullActionBuffer implements IActionBuffer {
 
 	final nullAction: ActionSnapshot;
 
+	public var isActive: Bool;
+
 	function new() {
 		nullAction = ActionSnapshot.fromBitField(0);
 	}

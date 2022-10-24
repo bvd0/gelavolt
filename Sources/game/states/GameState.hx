@@ -1,5 +1,6 @@
 package game.states;
 
+import hxbit.Serializer;
 import game.copying.ICopyFrom;
 import game.mediators.FrameCounter;
 import game.rules.MarginTimeManager;
@@ -15,9 +16,9 @@ class GameStateOptions {}
 
 class GameState {
 	@inject final particleManager: ParticleManager;
+	@inject final frameCounter: FrameCounter;
 	@inject final boardManager: IBoardManager;
 	@inject final marginManager: MarginTimeManager;
-	@inject final frameCounter: FrameCounter;
 
 	final FADE_TO_WHITELocation: ConstantLocation;
 
@@ -25,6 +26,10 @@ class GameState {
 		game.Macros.initFromOpts();
 
 		FADE_TO_WHITELocation = Pipelines.FADE_TO_WHITE.getConstantLocation("comp");
+	}
+
+	public function addDesyncInfo(ctx: Serializer) {
+		boardManager.addDesyncInfo(ctx);
 	}
 
 	public function update() {

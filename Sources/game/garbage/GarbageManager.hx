@@ -1,5 +1,8 @@
 package game.garbage;
 
+import hxbit.Serializer;
+import utils.ValueBox;
+import game.screens.GameScreenBase;
 import game.screens.GameScreen;
 import kha.Color;
 import game.copying.CopyableRNG;
@@ -15,14 +18,14 @@ import game.particles.GarbageBulletParticle;
 import game.particles.ParticleManager;
 import kha.graphics2.Graphics;
 import game.gelos.ScreenGeloPoint;
-import game.rules.Rule;
 
 @:structInit
 @:build(game.Macros.buildOptionsClass(GarbageManager))
 class GarbageManagerOptions {}
 
 class GarbageManager implements IGarbageManager {
-	@inject final rule: Rule;
+	@inject final garbageDropLimit: ValueBox<Int>;
+	@inject final confirmGracePeriod: ValueBox<Int>;
 	@inject final rng: CopyableRNG;
 	@inject final prefsSettings: PrefsSettings;
 	@inject final particleManager: ParticleManager;
@@ -30,7 +33,7 @@ class GarbageManager implements IGarbageManager {
 	@inject final tray: GarbageTray;
 	@inject final target: GarbageTargetMediator;
 
-	@copy var currentGarbage: Int;
+	@:s @copy var currentGarbage: Int;
 	@copy var confirmedGarbage: Int;
 	@copy var graceT: Int;
 
@@ -54,7 +57,7 @@ class GarbageManager implements IGarbageManager {
 		if (graceT > 0)
 			return 0;
 
-		return Std.int(Math.min(confirmedGarbage, rule.garbageDropLimit));
+		return Std.int(Math.min(confirmedGarbage, garbageDropLimit));
 	}
 
 	function reduceGarbage(amount: Int) {
@@ -145,7 +148,7 @@ class GarbageManager implements IGarbageManager {
 		final absTrayCenter = absPos.add(trayCenter);
 
 		final attackControl: Point = {
-			x: GameScreen.PLAY_AREA_DESIGN_WIDTH / 2,
+			x: GameScreenBase.PLAY_AREA_DESIGN_WIDTH / 2,
 			y: 0
 		};
 
@@ -193,8 +196,12 @@ class GarbageManager implements IGarbageManager {
 	}
 
 	function setConfirmedGarbage(amount: Int) {
+		if (amount == 0) {
+			return;
+		}
+
 		confirmedGarbage += Std.int(Math.min(amount, currentGarbage));
-		graceT = rule.garbageConfirmGracePeriod;
+		graceT = confirmGracePeriod;
 	}
 
 	function startAnimation() {
@@ -241,6 +248,10 @@ class GarbageManager implements IGarbageManager {
 	public function clear() {
 		reduceGarbage(currentGarbage);
 		startAnimation();
+	}
+
+	public function addDesyncInfo(ctx: Serializer) {
+		ctx.addInt(currentGarbage);
 	}
 
 	public function update() {

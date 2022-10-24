@@ -2,7 +2,6 @@ package game.ui;
 
 import save_data.PrefsSettings;
 import main_menu.MainMenuScreen;
-import Screen.GlobalScreenSwitcher;
 import ui.AreYouSureSubPageWidget;
 import main_menu.ui.OptionsPage;
 import game.mediators.PauseMediator;
@@ -34,6 +33,7 @@ class PauseMenu extends Menu {
 			prefsSettings: opts.prefsSettings,
 			positionFactor: 0,
 			widthFactor: 1,
+			backgroundOpacity: 0.9,
 			initialPage: new ListMenuPage({
 				header: "Paused",
 				widgetBuilder: generateInitalPage
@@ -58,7 +58,7 @@ class PauseMenu extends Menu {
 				description: ["Return To The Main Menu"],
 				content: "Return To The Main Menu?",
 				callback: () -> {
-					GlobalScreenSwitcher.switchScreen(new MainMenuScreen());
+					ScreenManager.switchScreen(new MainMenuScreen());
 				}
 			}),
 			#if sys
@@ -73,39 +73,11 @@ class PauseMenu extends Menu {
 		];
 	}
 
-	override function popPage() {
-		final poppedPage = pages.pop();
-
-		if (pages.isEmpty()) {
-			pages.add(poppedPage);
-			pauseMediator.resume();
-
-			return;
-		}
-
-		final firstPage = pages.first();
-
-		firstPage.onShow(this);
-		firstPage.onResize();
-	}
-
 	override function update() {
 		if (inputDevice.getAction(PAUSE)) {
 			pauseMediator.resume();
 		}
 
 		super.update();
-	}
-
-	override function render(g: Graphics, alpha: Float) {
-		final scr = ScaleManager.screen;
-
-		g.pushOpacity(0.90);
-		g.color = Black;
-		g.fillRect(0, 0, scr.width, scr.height);
-		g.color = White;
-		g.popOpacity();
-
-		super.render(g, alpha);
 	}
 }

@@ -14,6 +14,8 @@ class LocalActionBuffer implements IActionBuffer {
 
 	final actions: Map<Int, ActionSnapshot>;
 
+	public var isActive: Bool;
+
 	public function new(opts: LocalActionBufferOptions) {
 		game.Macros.initFromOpts();
 
@@ -27,22 +29,28 @@ class LocalActionBuffer implements IActionBuffer {
 				hardDrop: false
 			}
 		];
+
+		isActive = true;
 	}
 
 	function getAction(frame: Int) {
-		while (frame-- >= 0) {
+		while (frame > 0) {
 			if (actions.exists(frame))
-				return actions[frame];
+				break;
+
+			frame--;
 		}
 
-		return actions[0];
-	}
-
-	function addAction(frame: Int, action: ActionSnapshot) {
-		actions[frame + frameDelay] = action;
+		return actions[frame];
 	}
 
 	public function update() {
+		var latestAction = getAction(frameCounter.value);
+
+		if (!isActive) {
+			return latestAction;
+		}
+
 		final currentAction: ActionSnapshot = {
 			shiftLeft: inputDevice.getAction(SHIFT_LEFT),
 			shiftRight: inputDevice.getAction(SHIFT_RIGHT),
@@ -52,11 +60,8 @@ class LocalActionBuffer implements IActionBuffer {
 			hardDrop: inputDevice.getAction(HARD_DROP)
 		};
 
-		var frame = frameCounter.value;
-		var latestAction = getAction(frame);
-
 		if (latestAction.isNotEqual(currentAction)) {
-			addAction(frameCounter.value, currentAction);
+			actions[frameCounter.value + frameDelay] = currentAction;
 			latestAction = currentAction;
 		}
 

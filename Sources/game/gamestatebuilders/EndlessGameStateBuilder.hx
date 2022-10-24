@@ -1,7 +1,13 @@
 package game.gamestatebuilders;
 
+import game.rules.EndlessRule;
+import game.rules.AnimationsType;
+import game.rules.PhysicsType;
+import game.rules.PowerTableType;
+import game.rules.ColorBonusTableType;
+import game.rules.GroupBonusTableType;
+import utils.ValueBox;
 import game.actionbuffers.ReplayData;
-import game.rules.Rule;
 import game.mediators.ControlHintContainer;
 import game.boards.EndlessBoard;
 import input.IInputDevice;
@@ -38,15 +44,26 @@ import game.mediators.SaveGameStateMediator;
 
 @:structInit
 @:build(game.Macros.buildOptionsClass(EndlessGameStateBuilder))
-@:build(game.Macros.addGameStateBuilderType(ENDLESS))
-class EndlessGameStateBuilderOptions implements IGameStateBuilderOptions {}
+class EndlessGameStateBuilderOptions {}
 
 @:build(game.Macros.addGameStateBuildMethod())
 class EndlessGameStateBuilder implements IGameStateBuilder {
-	@inject final rngSeed: Int;
-	@inject final rule: Rule;
+	@inject final rule: EndlessRule;
 	@inject final inputDevice: IInputDevice;
 	@inject final replayData: Null<ReplayData>;
+
+	var softDropBonus: ValueBox<Float>;
+	var popCount: ValueBox<Int>;
+	var vanishHiddenRows: ValueBox<Bool>;
+	var groupBonusTableType: ValueBox<GroupBonusTableType>;
+	var colorBonusTableType: ValueBox<ColorBonusTableType>;
+	var powerTableType: ValueBox<PowerTableType>;
+	var dropBonusGarbage: ValueBox<Bool>;
+	var allClearReward: ValueBox<Int>;
+	var physics: ValueBox<PhysicsType>;
+	var animations: ValueBox<AnimationsType>;
+	var dropSpeed: ValueBox<Float>;
+	var randomizeGarbage: ValueBox<Bool>;
 
 	@copy var rng: CopyableRNG;
 	@copy var randomizer: Randomizer;
@@ -62,7 +79,7 @@ class EndlessGameStateBuilder implements IGameStateBuilder {
 	@copy var chainCounter: ChainCounter;
 	@copy var field: Field;
 	@copy var queue: Queue;
-	@copy var actionBuffer: IActionBuffer;
+	var actionBuffer: IActionBuffer;
 	@copy var geloGroup: GeloGroup;
 	@copy var allClearManager: AllClearManager;
 
@@ -81,17 +98,23 @@ class EndlessGameStateBuilder implements IGameStateBuilder {
 		game.Macros.initFromOpts();
 	}
 
-	public function copy() {
-		return new EndlessGameStateBuilder({
-			inputDevice: inputDevice,
-			rule: rule,
-			rngSeed: rngSeed,
-			replayData: replayData
-		});
+	inline function initValueBoxes() {
+		softDropBonus = rule.softDropBonus;
+		popCount = rule.popCount;
+		vanishHiddenRows = rule.vanishHiddenRows;
+		groupBonusTableType = rule.groupBonusTableType;
+		colorBonusTableType = rule.colorBonusTableType;
+		powerTableType = rule.powerTableType;
+		dropBonusGarbage = rule.dropBonusGarbage;
+		allClearReward = rule.allClearReward;
+		physics = rule.physics;
+		animations = rule.animations;
+		dropSpeed = rule.dropSpeed;
+		randomizeGarbage = rule.randomizeGarbage;
 	}
 
 	inline function buildRNG() {
-		rng = new CopyableRNG(rngSeed);
+		rng = new CopyableRNG(rule.rngSeed);
 	}
 
 	inline function buildRandomizer() {
@@ -109,7 +132,7 @@ class EndlessGameStateBuilder implements IGameStateBuilder {
 	}
 
 	inline function buildMarginManager() {
-		marginManager = new MarginTimeManager(rule);
+		marginManager = new MarginTimeManager(rule.marginTime, rule.targetPoints);
 	}
 
 	inline function buildFrameCounter() {
@@ -127,16 +150,21 @@ class EndlessGameStateBuilder implements IGameStateBuilder {
 
 	inline function buildScoreManager() {
 		scoreManager = new ScoreManager({
-			rule: rule,
+			softDropBonus: softDropBonus,
 			orientation: LEFT
 		});
 	}
 
 	inline function buildChainSim() {
 		chainSim = new ChainSimulator({
-			rule: rule,
+			popCount: popCount,
+			vanishHiddenRows: vanishHiddenRows,
 			linkBuilder: new LinkInfoBuilder({
-				rule: rule,
+				groupBonusTableType: groupBonusTableType,
+				colorBonusTableType: colorBonusTableType,
+				powerTableType: powerTableType,
+				dropBonusGarbage: dropBonusGarbage,
+				allClearReward: allClearReward,
 				marginManager: marginManager
 			}),
 			garbageDisplay: GarbageTray.create(Profile.primary.prefs),
@@ -167,7 +195,7 @@ class EndlessGameStateBuilder implements IGameStateBuilder {
 			actionBuffer = new LocalActionBuffer({
 				frameCounter: frameCounter,
 				inputDevice: inputDevice,
-				frameDelay: 0
+				frameDelay: Profile.primary.input.localDelay
 			});
 
 			return;
@@ -185,12 +213,15 @@ class EndlessGameStateBuilder implements IGameStateBuilder {
 		final prefsSettings = Profile.primary.prefs;
 
 		geloGroup = new GeloGroup({
+			physics: physics,
+			animations: animations,
+			dropSpeed: dropSpeed,
 			field: field,
-			rule: rule,
 			prefsSettings: prefsSettings,
 			scoreManager: scoreManager,
 			chainSim: new ChainSimulator({
-				rule: rule,
+				popCount: popCount,
+				vanishHiddenRows: vanishHiddenRows,
 				linkBuilder: NullLinkInfoBuilder.instance,
 				garbageDisplay: GarbageTray.create(prefsSettings),
 				accumulatedDisplay: GarbageTray.create(prefsSettings)
@@ -209,7 +240,8 @@ class EndlessGameStateBuilder implements IGameStateBuilder {
 
 	inline function buildBoardState() {
 		boardState = new EndlessBoardState({
-			rule: rule,
+			animations: animations,
+			randomizeGarbage: randomizeGarbage,
 			prefsSettings: Profile.primary.prefs,
 			rng: rng,
 			geometries: BoardGeometries.CENTERED,

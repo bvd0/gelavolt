@@ -1,5 +1,6 @@
 package game.boardmanagers;
 
+import hxbit.Serializer;
 import kha.graphics2.Graphics;
 import kha.graphics4.Graphics as Graphics4;
 
@@ -8,11 +9,22 @@ import kha.graphics4.Graphics as Graphics4;
 class DualBoardManagerOptions {}
 
 class DualBoardManager implements IBoardManager {
+	@inject final doesBoardOneHavePriority: Bool;
 	@inject final boardOne: SingleBoardManager;
 	@inject final boardTwo: SingleBoardManager;
 
 	public function new(opts: DualBoardManagerOptions) {
 		game.Macros.initFromOpts();
+	}
+
+	public function addDesyncInfo(ctx: Serializer) {
+		if (doesBoardOneHavePriority) {
+			boardOne.addDesyncInfo(ctx);
+			boardTwo.addDesyncInfo(ctx);
+		} else {
+			boardTwo.addDesyncInfo(ctx);
+			boardOne.addDesyncInfo(ctx);
+		}
 	}
 
 	public function update() {

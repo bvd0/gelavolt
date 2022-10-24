@@ -1,8 +1,17 @@
 package game.gamestatebuilders;
 
+import game.rules.VersusRule;
+import game.boardstates.EndlessBoardState;
+import game.rules.AnimationsType;
+import game.rules.PhysicsType;
+import game.rules.PowerTableType;
+import game.rules.ColorBonusTableType;
+import game.rules.GroupBonusTableType;
+import utils.ValueBox;
+import game.mediators.RollbackMediator;
+import game.actionbuffers.NullActionBuffer;
 import game.garbage.trays.NullGarbageTray;
 import game.mediators.ControlHintContainer;
-import game.rules.Rule;
 import game.boardmanagers.SingleBoardManager;
 import game.boardmanagers.DualBoardManager;
 import input.NullInputDevice;
@@ -32,20 +41,38 @@ import game.particles.ParticleManager;
 import game.randomizers.Randomizer;
 import game.copying.CopyableRNG;
 import game.mediators.FrameCounter;
-import game.mediators.SaveGameStateMediator;
+#if kha_html5
+import game.net.SessionManager;
+import game.actionbuffers.ReceiveActionBuffer;
+import game.actionbuffers.SenderActionBuffer;
+#end
 
 @:structInit
-@:build(game.Macros.buildOptionsClass(VersusGameStateBuilder))
-@:build(game.Macros.addGameStateBuilderType(VERSUS))
-class VersusGameStateBuilderOptions implements IGameStateBuilderOptions {}
+@:build(game.Macros.buildOptionsClass(NetplayEndlessGameStateBuilder))
+class NetplayEndlessGameStateBuilderOptions {}
 
 @:build(game.Macros.addGameStateBuildMethod())
-class VersusGameStateBuilder implements IGameStateBuilder {
-	@inject final rngSeed: Int;
-	@inject final rule: Rule;
-	@inject final frameCounter: FrameCounter;
-	@inject final leftActionBuffer: IActionBuffer;
-	@inject final rightActionBuffer: IActionBuffer;
+class NetplayEndlessGameStateBuilder implements INetplayGameStateBuilder {
+	@inject final rule: VersusRule;
+	@inject final isLocalOnLeft: Bool;
+	@inject final session: Null<SessionManager>;
+
+	@inject @copy final frameCounter: FrameCounter;
+
+	var garbageDropLimit: ValueBox<Int>;
+	var garbageConfirmGracePeriod: ValueBox<Int>;
+	var softDropBonus: ValueBox<Float>;
+	var popCount: ValueBox<Int>;
+	var vanishHiddenRows: ValueBox<Bool>;
+	var groupBonusTableType: ValueBox<GroupBonusTableType>;
+	var colorBonusTableType: ValueBox<ColorBonusTableType>;
+	var powerTableType: ValueBox<PowerTableType>;
+	var dropBonusGarbage: ValueBox<Bool>;
+	var allClearReward: ValueBox<Int>;
+	var physics: ValueBox<PhysicsType>;
+	var animations: ValueBox<AnimationsType>;
+	var dropSpeed: ValueBox<Float>;
+	var randomizeGarbage: ValueBox<Bool>;
 
 	@copy var rng: CopyableRNG;
 	@copy var randomizer: Randomizer;
@@ -68,6 +95,7 @@ class VersusGameStateBuilder implements IGameStateBuilder {
 	@copy var leftField: Field;
 	@copy var leftQueue: Queue;
 	var leftInputDevice: IInputDevice;
+	var leftActionBuffer: IActionBuffer;
 	@copy var leftGeloGroup: GeloGroup;
 	@copy var leftAllClearManager: AllClearManager;
 	@copy var leftPreview: VerticalPreview;
@@ -81,7 +109,8 @@ class VersusGameStateBuilder implements IGameStateBuilder {
 	@copy var rightChainCounter: ChainCounter;
 	@copy var rightField: Field;
 	@copy var rightQueue: Queue;
-	@copy var rightInputDevice: IInputDevice;
+	var rightInputDevice: IInputDevice;
+	var rightActionBuffer: IActionBuffer;
 	@copy var rightGeloGroup: GeloGroup;
 	@copy var rightAllClearManager: AllClearManager;
 	@copy var rightPreview: VerticalPreview;
@@ -92,29 +121,71 @@ class VersusGameStateBuilder implements IGameStateBuilder {
 	var leftBoard: SingleStateBoard;
 	var rightBoard: SingleStateBoard;
 
-	public var pauseMediator(null, default): PauseMediator;
-	@copy public var controlHintContainer(null, default): ControlHintContainer;
-	public var saveGameStateMediator(null, default): SaveGameStateMediator;
+	public var pauseMediator(null, default): Null<PauseMediator>;
+	@copy public var controlHintContainer(null, default): Null<ControlHintContainer>;
+	public var rollbackMediator(null, default): Null<RollbackMediator>;
 
 	public var gameState(default, null): GameState;
 	public var pauseMenu(default, null): PauseMenu;
 
-	public function new(opts: VersusGameStateBuilderOptions) {
+	public function new(opts: NetplayEndlessGameStateBuilderOptions) {
 		Macros.initFromOpts();
 	}
 
-	public function copy() {
-		return new VersusGameStateBuilder({
-			rngSeed: rngSeed,
+	public function createBackupBuilder() {
+		return new NetplayEndlessGameStateBuilder({
 			rule: rule,
-			frameCounter: new FrameCounter().copyFrom(frameCounter),
-			leftActionBuffer: null,
-			rightActionBuffer: null
+			isLocalOnLeft: isLocalOnLeft,
+			session: null,
+			frameCounter: new FrameCounter()
 		});
 	}
 
+	inline function initValueBoxes() {
+		garbageDropLimit = rule.garbageDropLimit;
+		garbageConfirmGracePeriod = rule.garbageConfirmGracePeriod;
+		softDropBonus = rule.softDropBonus;
+		popCount = rule.popCount;
+		vanishHiddenRows = rule.vanishHiddenRows;
+		groupBonusTableType = rule.groupBonusTableType;
+		colorBonusTableType = rule.colorBonusTableType;
+		powerTableType = rule.powerTableType;
+		dropBonusGarbage = rule.dropBonusGarbage;
+		allClearReward = rule.allClearReward;
+		physics = rule.physics;
+		animations = rule.animations;
+		dropSpeed = rule.dropSpeed;
+		randomizeGarbage = rule.randomizeGarbage;
+	}
+
+	inline function initPauseMediator() {
+		if (pauseMediator == null) {
+			pauseMediator = {
+				pause: (_) -> {},
+				resume: () -> {}
+			};
+		}
+	}
+
+	inline function initControlHintContainer() {
+		if (controlHintContainer == null) {
+			controlHintContainer = new ControlHintContainer();
+		}
+
+		controlHintContainer.isVisible = Profile.primary.trainingSettings.showControlHints;
+	}
+
+	inline function initRollbackMediator() {
+		if (rollbackMediator == null) {
+			rollbackMediator = {
+				confirmFrame: () -> {},
+				rollback: (_) -> {}
+			};
+		}
+	}
+
 	inline function buildRNG() {
-		rng = new CopyableRNG(rngSeed);
+		rng = new CopyableRNG(rule.rngSeed);
 	}
 
 	inline function buildRandomizer() {
@@ -132,7 +203,7 @@ class VersusGameStateBuilder implements IGameStateBuilder {
 	}
 
 	inline function buildMarginManager() {
-		marginManager = new MarginTimeManager(rule);
+		marginManager = new MarginTimeManager(rule.marginTime, rule.targetPoints);
 	}
 
 	inline function buildLeftBorderColorMediator() {
@@ -157,7 +228,8 @@ class VersusGameStateBuilder implements IGameStateBuilder {
 
 	inline function buildLeftGarbageManager() {
 		leftGarbageManager = new GarbageManager({
-			rule: rule,
+			garbageDropLimit: garbageDropLimit,
+			confirmGracePeriod: garbageConfirmGracePeriod,
 			rng: rng,
 			prefsSettings: Profile.primary.prefs,
 			particleManager: particleManager,
@@ -169,7 +241,7 @@ class VersusGameStateBuilder implements IGameStateBuilder {
 
 	inline function buildLeftScoreManager() {
 		leftScoreManager = new ScoreManager({
-			rule: rule,
+			softDropBonus: softDropBonus,
 			orientation: LEFT
 		});
 	}
@@ -184,9 +256,14 @@ class VersusGameStateBuilder implements IGameStateBuilder {
 
 	inline function buildLeftChainSim() {
 		leftChainSim = new ChainSimulator({
-			rule: rule,
+			popCount: popCount,
+			vanishHiddenRows: vanishHiddenRows,
 			linkBuilder: new LinkInfoBuilder({
-				rule: rule,
+				groupBonusTableType: groupBonusTableType,
+				colorBonusTableType: colorBonusTableType,
+				powerTableType: powerTableType,
+				dropBonusGarbage: dropBonusGarbage,
+				allClearReward: allClearReward,
 				marginManager: marginManager
 			}),
 			garbageDisplay: leftChainSimDisplay,
@@ -212,20 +289,51 @@ class VersusGameStateBuilder implements IGameStateBuilder {
 		leftQueue = new Queue(randomizer.createQueueData(Dropsets.CLASSICAL));
 	}
 
-	inline function buildLeftInputDevice() {
-		leftInputDevice = AnyInputDevice.instance;
+	inline function buildLeftInputHandling() {
+		if (session == null) {
+			leftInputDevice = NullInputDevice.instance;
+			leftActionBuffer = NullActionBuffer.instance;
+
+			return;
+		}
+
+		if (isLocalOnLeft) {
+			leftInputDevice = AnyInputDevice.instance;
+
+			leftActionBuffer = new SenderActionBuffer({
+				session: session,
+				frameCounter: frameCounter,
+				inputDevice: leftInputDevice,
+				frameDelay: Profile.primary.input.netplayDelay
+			});
+
+			return;
+		}
+
+		leftInputDevice = NullInputDevice.instance;
+
+		final recvAB = new ReceiveActionBuffer({
+			frameCounter: frameCounter,
+			rollbackMediator: rollbackMediator
+		});
+
+		leftActionBuffer = recvAB;
+		session.onInput = recvAB.onInput;
 	}
 
 	inline function buildLeftGeloGroup() {
 		final prefsSettings = Profile.primary.prefs;
 
 		leftGeloGroup = new GeloGroup({
+			physics: physics,
+			animations: animations,
+			dropSpeed: dropSpeed,
 			field: leftField,
-			rule: rule,
 			prefsSettings: prefsSettings,
 			scoreManager: leftScoreManager,
 			chainSim: new ChainSimulator({
-				rule: rule,
+				popCount: popCount,
+				vanishHiddenRows: vanishHiddenRows,
 				linkBuilder: NullLinkInfoBuilder.instance,
 				garbageDisplay: NullGarbageTray.instance,
 				accumulatedDisplay: NullGarbageTray.instance
@@ -252,7 +360,8 @@ class VersusGameStateBuilder implements IGameStateBuilder {
 
 	inline function buildRightGarbageManager() {
 		rightGarbageManager = new GarbageManager({
-			rule: rule,
+			garbageDropLimit: garbageDropLimit,
+			confirmGracePeriod: garbageConfirmGracePeriod,
 			rng: rng,
 			prefsSettings: Profile.primary.prefs,
 			particleManager: particleManager,
@@ -264,7 +373,7 @@ class VersusGameStateBuilder implements IGameStateBuilder {
 
 	inline function buildRightScoreManager() {
 		rightScoreManager = new ScoreManager({
-			rule: rule,
+			softDropBonus: softDropBonus,
 			orientation: LEFT
 		});
 	}
@@ -279,9 +388,14 @@ class VersusGameStateBuilder implements IGameStateBuilder {
 
 	inline function buildRightChainSim() {
 		rightChainSim = new ChainSimulator({
-			rule: rule,
+			popCount: popCount,
+			vanishHiddenRows: vanishHiddenRows,
 			linkBuilder: new LinkInfoBuilder({
-				rule: rule,
+				groupBonusTableType: groupBonusTableType,
+				colorBonusTableType: colorBonusTableType,
+				powerTableType: powerTableType,
+				dropBonusGarbage: dropBonusGarbage,
+				allClearReward: allClearReward,
 				marginManager: marginManager
 			}),
 			garbageDisplay: rightChainSimDisplay,
@@ -311,16 +425,51 @@ class VersusGameStateBuilder implements IGameStateBuilder {
 		rightInputDevice = NullInputDevice.instance;
 	}
 
+	inline function buildRightInputHandling() {
+		if (session == null) {
+			rightInputDevice = NullInputDevice.instance;
+			rightActionBuffer = NullActionBuffer.instance;
+
+			return;
+		}
+
+		if (isLocalOnLeft) {
+			rightInputDevice = NullInputDevice.instance;
+
+			final recvAB = new ReceiveActionBuffer({
+				frameCounter: frameCounter,
+				rollbackMediator: rollbackMediator
+			});
+
+			rightActionBuffer = recvAB;
+			session.onInput = recvAB.onInput;
+
+			return;
+		}
+
+		rightInputDevice = AnyInputDevice.instance;
+
+		rightActionBuffer = new SenderActionBuffer({
+			session: session,
+			frameCounter: frameCounter,
+			inputDevice: rightInputDevice,
+			frameDelay: Profile.primary.input.netplayDelay
+		});
+	}
+
 	inline function buildRightGeloGroup() {
 		final prefsSettings = Profile.primary.prefs;
 
 		rightGeloGroup = new GeloGroup({
+			physics: physics,
+			animations: animations,
+			dropSpeed: dropSpeed,
 			field: rightField,
-			rule: rule,
 			prefsSettings: prefsSettings,
 			scoreManager: rightScoreManager,
 			chainSim: new ChainSimulator({
-				rule: rule,
+				popCount: popCount,
+				vanishHiddenRows: vanishHiddenRows,
 				linkBuilder: NullLinkInfoBuilder.instance,
 				garbageDisplay: NullGarbageTray.instance,
 				accumulatedDisplay: NullGarbageTray.instance
@@ -342,8 +491,9 @@ class VersusGameStateBuilder implements IGameStateBuilder {
 	}
 
 	inline function buildLeftBoardState() {
-		leftState = new StandardBoardState({
-			rule: rule,
+		leftState = new EndlessBoardState({
+			animations: animations,
+			randomizeGarbage: randomizeGarbage,
 			prefsSettings: Profile.primary.prefs,
 			rng: rng,
 			geometries: BoardGeometries.LEFT,
@@ -358,12 +508,16 @@ class VersusGameStateBuilder implements IGameStateBuilder {
 			actionBuffer: leftActionBuffer,
 			chainCounter: leftChainCounter,
 			chainSim: leftChainSim,
+			randomizer: randomizer,
+			marginManager: marginManager,
+			clearOnXModeContainer: Profile.primary.endlessSettings
 		});
 	}
 
 	inline function buildRightBoardState() {
-		rightState = new StandardBoardState({
-			rule: rule,
+		rightState = new EndlessBoardState({
+			animations: animations,
+			randomizeGarbage: randomizeGarbage,
 			prefsSettings: Profile.primary.prefs,
 			rng: rng,
 			geometries: BoardGeometries.RIGHT,
@@ -378,6 +532,9 @@ class VersusGameStateBuilder implements IGameStateBuilder {
 			actionBuffer: rightActionBuffer,
 			chainCounter: rightChainCounter,
 			chainSim: rightChainSim,
+			randomizer: randomizer,
+			marginManager: marginManager,
+			clearOnXModeContainer: Profile.primary.endlessSettings
 		});
 	}
 
@@ -405,10 +562,13 @@ class VersusGameStateBuilder implements IGameStateBuilder {
 	}
 
 	inline function buildGameState() {
+		final priority = (session != null) ? session.localID < session.remoteID : true;
+
 		gameState = new GameState({
 			particleManager: particleManager,
 			marginManager: marginManager,
 			boardManager: new DualBoardManager({
+				doesBoardOneHavePriority: priority,
 				boardOne: new SingleBoardManager({
 					board: leftBoard,
 					geometries: BoardGeometries.LEFT

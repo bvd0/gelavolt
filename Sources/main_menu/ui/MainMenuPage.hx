@@ -1,5 +1,6 @@
 package main_menu.ui;
 
+import game.screens.BackupStateGameScreen;
 import game.gamestatebuilders.TrainingGameStateBuilder;
 import input.AnyInputDevice;
 import game.gamestatebuilders.EndlessGameStateBuilder;
@@ -7,14 +8,14 @@ import save_data.PrefsSettings;
 import ui.SubPageWidget;
 import kha.System;
 import game.screens.GameScreen;
-import Screen.GlobalScreenSwitcher;
 import ui.ButtonWidget;
 import ui.ListMenuPage;
 #if sys
 import kha.Window;
 #end
-#if js
+#if kha_html5
 import js.Browser;
+import lobby.LobbyPage;
 #end
 
 class MainMenuPage extends ListMenuPage {
@@ -33,9 +34,24 @@ class MainMenuPage extends ListMenuPage {
 					title: "Training Mode",
 					description: ["Practice In GelaVolt's", "Signature Training Mode!"],
 					callback: () -> {
-						GlobalScreenSwitcher.switchScreen(new GameScreen(new TrainingGameStateBuilder({
-							rule: {},
+						ScreenManager.switchScreen(new BackupStateGameScreen(new TrainingGameStateBuilder({
 							rngSeed: Std.int(System.time * 1000000),
+							marginTime: 96,
+							targetPoints: 70,
+							garbageDropLimit: 30,
+							garbageConfirmGracePeriod: 30,
+							softDropBonus: 0.5,
+							popCount: 4,
+							vanishHiddenRows: false,
+							groupBonusTableType: TSU,
+							colorBonusTableType: TSU,
+							powerTableType: TSU,
+							dropBonusGarbage: true,
+							allClearReward: 30,
+							physics: TSU,
+							animations: TSU,
+							dropSpeed: 2.6,
+							randomizeGarbage: true
 						})));
 					}
 				}),
@@ -43,21 +59,36 @@ class MainMenuPage extends ListMenuPage {
 					title: "Endless Mode",
 					description: ["Play For As Long As You", "Can In Endless Mode And", "Share Your Replays!"],
 					callback: () -> {
-						GlobalScreenSwitcher.switchScreen(new GameScreen(new EndlessGameStateBuilder({
-							rule: {},
-							rngSeed: Std.int(System.time * 1000000),
+						ScreenManager.switchScreen(new GameScreen(new EndlessGameStateBuilder({
+							rule: {
+								rngSeed: Std.int(System.time * 1000000),
+								marginTime: 96,
+								targetPoints: 70,
+								softDropBonus: 0.5,
+								popCount: 4,
+								vanishHiddenRows: false,
+								groupBonusTableType: TSU,
+								colorBonusTableType: TSU,
+								powerTableType: TSU,
+								dropBonusGarbage: true,
+								allClearReward: 30,
+								physics: TSU,
+								animations: TSU,
+								dropSpeed: 2.6,
+								randomizeGarbage: true,
+							},
 							inputDevice: AnyInputDevice.instance,
 							replayData: null
 						})));
 					}
 				}),
-				/*
-					new SubPageWidget({
-						title: "Netplay Test",
-						description: [],
-						subPage: new NetplaySyncPage()
-					}),
-				 */
+				#if kha_html5
+				new SubPageWidget({
+					title: "Host Netplay Test (WIP)",
+					description: [],
+					subPage: new LobbyPage()
+				}),
+				#end
 				new SubPageWidget({
 					title: "Options",
 					description: ["Change Various Options and Settings"],
@@ -72,7 +103,7 @@ class MainMenuPage extends ListMenuPage {
 					}
 				}),
 				#end
-				#if js
+				#if kha_html5
 				new ButtonWidget({
 					title: "Download Desktop Version",
 					description: [

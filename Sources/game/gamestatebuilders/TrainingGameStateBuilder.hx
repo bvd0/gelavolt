@@ -1,7 +1,13 @@
 package game.gamestatebuilders;
 
+import game.rules.VersusRule;
+import game.rules.AnimationsType;
+import game.rules.PhysicsType;
+import game.rules.PowerTableType;
+import game.rules.ColorBonusTableType;
+import game.rules.GroupBonusTableType;
+import utils.ValueBox;
 import game.garbage.trays.NullGarbageTray;
-import game.rules.Rule;
 import game.auto_attack.AutoAttackManager;
 import game.gelogroups.TrainingGeloGroup;
 import game.mediators.ControlHintContainer;
@@ -29,7 +35,6 @@ import game.boards.TrainingBoard;
 import game.copying.CopyableRNG;
 import game.randomizers.Randomizer;
 import game.Queue;
-import game.actionbuffers.NullActionBuffer;
 import game.boards.SingleStateBoard;
 import game.garbage.trays.CenterGarbageTray;
 import game.boardmanagers.DualBoardManager;
@@ -43,20 +48,24 @@ import game.simulation.LinkInfoBuilder;
 import game.simulation.ChainSimulator;
 import game.mediators.SaveGameStateMediator;
 
-@:structInit
-@:build(game.Macros.buildOptionsClass(TrainingGameStateBuilder))
-class TrainingGameStateBuilderOptions {
-	static final type = 0;
-
-	public function getType() {
-		return type;
-	}
-}
-
 @:build(game.Macros.addGameStateBuildMethod())
-class TrainingGameStateBuilder implements IGameStateBuilder {
-	@inject final rngSeed: Int;
-	@inject final rule: Rule;
+class TrainingGameStateBuilder implements IBackupGameStateBuilder {
+	final rule: VersusRule;
+
+	var garbageDropLimit: ValueBox<Int>;
+	var garbageConfirmGracePeriod: ValueBox<Int>;
+	var softDropBonus: ValueBox<Float>;
+	var popCount: ValueBox<Int>;
+	var vanishHiddenRows: ValueBox<Bool>;
+	var groupBonusTableType: ValueBox<GroupBonusTableType>;
+	var colorBonusTableType: ValueBox<ColorBonusTableType>;
+	var powerTableType: ValueBox<PowerTableType>;
+	var dropBonusGarbage: ValueBox<Bool>;
+	var allClearReward: ValueBox<Int>;
+	var physics: ValueBox<PhysicsType>;
+	var animations: ValueBox<AnimationsType>;
+	var dropSpeed: ValueBox<Float>;
+	var randomizeGarbage: ValueBox<Bool>;
 
 	@copy var rng: CopyableRNG;
 	@copy var randomizer: Randomizer;
@@ -101,26 +110,66 @@ class TrainingGameStateBuilder implements IGameStateBuilder {
 	@copy var playerBoard: TrainingBoard;
 	@copy var infoBoard: SingleStateBoard;
 
-	public var pauseMediator(null, default): PauseMediator;
-	@copy public var controlHintContainer(null, default): ControlHintContainer;
-	public var saveGameStateMediator(null, default): SaveGameStateMediator;
+	public var pauseMediator(null, default): Null<PauseMediator>;
+	@copy public var controlHintContainer(null, default): Null<ControlHintContainer>;
+	public var saveGameStateMediator(null, default): Null<SaveGameStateMediator>;
 
 	public var gameState(default, null): GameState;
 	public var pauseMenu(default, null): TrainingPauseMenu;
 
-	public function new(opts: TrainingGameStateBuilderOptions) {
-		game.Macros.initFromOpts();
+	public function new(rule: VersusRule) {
+		this.rule = rule;
 	}
 
-	public function copy() {
-		return new TrainingGameStateBuilder({
-			rngSeed: rngSeed,
-			rule: rule
-		});
+	public function createBackupBuilder() {
+		return new TrainingGameStateBuilder(rule);
+	}
+
+	inline function initValueBoxes() {
+		garbageDropLimit = rule.garbageDropLimit;
+		garbageConfirmGracePeriod = rule.garbageConfirmGracePeriod;
+		softDropBonus = rule.softDropBonus;
+		popCount = rule.popCount;
+		vanishHiddenRows = rule.vanishHiddenRows;
+		groupBonusTableType = rule.groupBonusTableType;
+		colorBonusTableType = rule.colorBonusTableType;
+		powerTableType = rule.powerTableType;
+		dropBonusGarbage = rule.dropBonusGarbage;
+		allClearReward = rule.allClearReward;
+		physics = rule.physics;
+		animations = rule.animations;
+		dropSpeed = rule.dropSpeed;
+		randomizeGarbage = rule.randomizeGarbage;
+	}
+
+	inline function initPauseMediator() {
+		if (pauseMediator == null) {
+			pauseMediator = {
+				pause: (_) -> {},
+				resume: () -> {}
+			};
+		}
+	}
+
+	inline function initControlHintContainer() {
+		if (controlHintContainer == null) {
+			controlHintContainer = new ControlHintContainer();
+		}
+
+		controlHintContainer.isVisible = Profile.primary.trainingSettings.showControlHints;
+	}
+
+	inline function initSaveGameStateMediator() {
+		if (saveGameStateMediator == null) {
+			saveGameStateMediator = {
+				loadState: () -> {},
+				saveState: () -> {},
+			};
+		}
 	}
 
 	inline function buildRNG() {
-		rng = new CopyableRNG(rngSeed);
+		rng = new CopyableRNG(rule.rngSeed);
 	}
 
 	inline function buildRandomizer() {
@@ -138,15 +187,11 @@ class TrainingGameStateBuilder implements IGameStateBuilder {
 	}
 
 	inline function buildMarginManager() {
-		marginManager = new MarginTimeManager(rule);
+		marginManager = new MarginTimeManager(rule.marginTime, rule.targetPoints);
 	}
 
 	inline function buildFrameCounter() {
 		frameCounter = new FrameCounter();
-	}
-
-	inline function initControlHintContainer() {
-		controlHintContainer.isVisible = Profile.primary.trainingSettings.showControlHints;
 	}
 
 	inline function buildPlayerBorderColorMediator() {
@@ -167,7 +212,8 @@ class TrainingGameStateBuilder implements IGameStateBuilder {
 
 	inline function buildPlayerGarbageManager() {
 		playerGarbageManager = new GarbageManager({
-			rule: rule,
+			garbageDropLimit: garbageDropLimit,
+			confirmGracePeriod: garbageConfirmGracePeriod,
 			rng: rng,
 			prefsSettings: Profile.primary.prefs,
 			particleManager: particleManager,
@@ -179,7 +225,7 @@ class TrainingGameStateBuilder implements IGameStateBuilder {
 
 	inline function buildPlayerScoreManager() {
 		playerScoreManager = new ScoreManager({
-			rule: rule,
+			softDropBonus: softDropBonus,
 			orientation: LEFT
 		});
 	}
@@ -194,9 +240,14 @@ class TrainingGameStateBuilder implements IGameStateBuilder {
 
 	inline function buildPlayerChainSim() {
 		playerChainSim = new ChainSimulator({
-			rule: rule,
+			popCount: popCount,
+			vanishHiddenRows: vanishHiddenRows,
 			linkBuilder: new LinkInfoBuilder({
-				rule: rule,
+				groupBonusTableType: groupBonusTableType,
+				colorBonusTableType: colorBonusTableType,
+				powerTableType: powerTableType,
+				dropBonusGarbage: dropBonusGarbage,
+				allClearReward: allClearReward,
 				marginManager: marginManager
 			}),
 			garbageDisplay: playerChainSimDisplay,
@@ -234,13 +285,14 @@ class TrainingGameStateBuilder implements IGameStateBuilder {
 		playerActionBuffer = new LocalActionBuffer({
 			frameCounter: frameCounter,
 			inputDevice: playerInputDevice,
-			frameDelay: 0
+			frameDelay: Profile.primary.input.localDelay
 		});
 	}
 
 	inline function buildPlayerGeloGroupChainSim() {
 		playerGeloGroupChainSim = new ChainSimulator({
-			rule: rule,
+			popCount: popCount,
+			vanishHiddenRows: vanishHiddenRows,
 			linkBuilder: NullLinkInfoBuilder.instance,
 			garbageDisplay: NullGarbageTray.instance,
 			accumulatedDisplay: NullGarbageTray.instance
@@ -249,8 +301,10 @@ class TrainingGameStateBuilder implements IGameStateBuilder {
 
 	inline function buildPlayerGeloGroup() {
 		playerGeloGroup = new TrainingGeloGroup({
+			physics: physics,
+			animations: animations,
+			dropSpeed: dropSpeed,
 			field: playerField,
-			rule: rule,
 			prefsSettings: Profile.primary.prefs,
 			scoreManager: playerScoreManager,
 			chainSim: playerGeloGroupChainSim,
@@ -273,7 +327,8 @@ class TrainingGameStateBuilder implements IGameStateBuilder {
 
 	inline function buildInfoGarbageManager() {
 		infoGarbageManager = new GarbageManager({
-			rule: rule,
+			garbageDropLimit: garbageDropLimit,
+			confirmGracePeriod: garbageConfirmGracePeriod,
 			rng: rng,
 			prefsSettings: Profile.primary.prefs,
 			particleManager: particleManager,
@@ -289,13 +344,17 @@ class TrainingGameStateBuilder implements IGameStateBuilder {
 
 	inline function buildAutoAttackManager() {
 		autoAttackManager = new AutoAttackManager({
-			rule: rule,
+			popCount: popCount,
 			rng: rng,
 			geometries: BoardGeometries.INFO,
 			trainingSettings: Profile.primary.trainingSettings,
 			prefsSettings: Profile.primary.prefs,
 			linkBuilder: new LinkInfoBuilder({
-				rule: rule,
+				groupBonusTableType: groupBonusTableType,
+				colorBonusTableType: colorBonusTableType,
+				powerTableType: powerTableType,
+				dropBonusGarbage: dropBonusGarbage,
+				allClearReward: allClearReward,
 				marginManager: marginManager
 			}),
 			garbageManager: infoGarbageManager,
@@ -314,11 +373,15 @@ class TrainingGameStateBuilder implements IGameStateBuilder {
 
 	inline function buildInfoState() {
 		infoState = new TrainingInfoBoardState({
+			popCount: popCount,
 			geometries: BoardGeometries.INFO,
 			marginManager: marginManager,
-			rule: rule,
 			linkBuilder: new LinkInfoBuilder({
-				rule: rule,
+				groupBonusTableType: groupBonusTableType,
+				colorBonusTableType: colorBonusTableType,
+				powerTableType: powerTableType,
+				dropBonusGarbage: dropBonusGarbage,
+				allClearReward: allClearReward,
 				marginManager: marginManager
 			}),
 			trainingSettings: Profile.primary.trainingSettings,
@@ -334,8 +397,9 @@ class TrainingGameStateBuilder implements IGameStateBuilder {
 
 	inline function buildPlayState() {
 		playState = new TrainingBoardState({
+			animations: animations,
+			randomizeGarbage: randomizeGarbage,
 			infoState: infoState,
-			rule: rule,
 			prefsSettings: Profile.primary.prefs,
 			rng: rng,
 			geometries: BoardGeometries.LEFT,
@@ -401,8 +465,16 @@ class TrainingGameStateBuilder implements IGameStateBuilder {
 
 	inline function buildPauseMenu() {
 		pauseMenu = new TrainingPauseMenu({
+			popCount: popCount,
+			vanishHiddenRows: vanishHiddenRows,
+			dropSpeed: dropSpeed,
+			physics: physics,
+			powerTableType: powerTableType,
+			colorBonusTableType: colorBonusTableType,
+			groupBonusTableType: groupBonusTableType,
+			dropBonusGarbage: dropBonusGarbage,
+			allClearReward: allClearReward,
 			pauseMediator: pauseMediator,
-			rule: rule,
 			prefsSettings: Profile.primary.prefs,
 			randomizer: randomizer,
 			queue: playerQueue,
@@ -424,6 +496,7 @@ class TrainingGameStateBuilder implements IGameStateBuilder {
 			particleManager: particleManager,
 			marginManager: marginManager,
 			boardManager: new DualBoardManager({
+				doesBoardOneHavePriority: true,
 				boardOne: new SingleBoardManager({
 					geometries: BoardGeometries.LEFT,
 					board: playerBoard

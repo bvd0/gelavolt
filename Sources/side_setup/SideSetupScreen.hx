@@ -5,7 +5,6 @@ import kha.Assets;
 import kha.Font;
 import kha.graphics2.Graphics;
 import kha.graphics4.Graphics as Graphics4;
-import Screen.IScreen;
 
 class SideSetupScreen implements IScreen {
 	static inline final FONT_SIZE = 80;
@@ -67,6 +66,8 @@ class SideSetupScreen implements IScreen {
 			leftSlot = null;
 		}
 	}
+
+	public function dispose() {}
 
 	public function update() {
 		for (d in devices) {

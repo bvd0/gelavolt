@@ -57,8 +57,6 @@ class Gelo implements ICopy {
 
 	@inject final prefsSettings: PrefsSettings;
 
-	@inject public final color: GeloColor;
-
 	@copy var spriteVariation: GeloSpriteVariation;
 	@copy var subImageCoords: Point;
 
@@ -72,6 +70,8 @@ class Gelo implements ICopy {
 
 	@copy var prevScaleX: Float;
 	@copy var prevScaleY: Float;
+
+	@inject public final color: GeloColor;
 
 	@copy public var scaleX(default, null): Float;
 	@copy public var scaleY(default, null): Float;

@@ -1,7 +1,8 @@
 package game.boardstates;
 
+import hxbit.Serializer;
+import utils.ValueBox;
 import game.rules.AnimationsType;
-import game.rules.Rule;
 import utils.Utils;
 import game.simulation.SimulationStepType;
 import save_data.PrefsSettings;
@@ -43,7 +44,8 @@ private enum InnerState {
 class StandardBoardStateOptions {}
 
 class StandardBoardState implements IBoardState {
-	@inject final rule: Rule;
+	@inject final animations: ValueBox<AnimationsType>;
+	@inject final randomizeGarbage: ValueBox<Bool>;
 	@inject final prefsSettings: PrefsSettings;
 
 	@inject final rng: CopyableRNG;
@@ -69,6 +71,9 @@ class StandardBoardState implements IBoardState {
 
 	@copy var firstDropFrame: Bool;
 
+	@copy var canRotateLeft: Bool;
+	@copy var canRotateRight: Bool;
+
 	@copy var borderColor: Color;
 	@copy var beginBorderColor: Color;
 	@copy var targetBorderColor: Color;
@@ -92,6 +97,9 @@ class StandardBoardState implements IBoardState {
 		beginBorderColor = White;
 		targetBorderColor = White;
 		borderColorT = 15;
+
+		canRotateLeft = true;
+		canRotateRight = true;
 
 		canDropGarbage = true;
 
@@ -123,6 +131,7 @@ class StandardBoardState implements IBoardState {
 
 	function lockGroup() {
 		canDropGarbage = true;
+		actionBuffer.isActive = false;
 		beginChainSimulation();
 	}
 
@@ -136,9 +145,21 @@ class StandardBoardState implements IBoardState {
 
 	function controlGroup() {
 		if (currentActions.rotateLeft) {
-			geloGroup.rotateLeft();
-		} else if (currentActions.rotateRight) {
-			geloGroup.rotateRight();
+			if (canRotateLeft) {
+				geloGroup.rotateLeft();
+				canRotateLeft = false;
+			}
+		} else {
+			canRotateLeft = true;
+		}
+
+		if (currentActions.rotateRight) {
+			if (canRotateRight) {
+				geloGroup.rotateRight();
+				canRotateRight = false;
+			}
+		} else {
+			canRotateRight = true;
 		}
 
 		if (currentActions.shiftLeft) {
@@ -159,6 +180,8 @@ class StandardBoardState implements IBoardState {
 		queue.next();
 
 		preview.startAnimation(queue.currentIndex);
+
+		actionBuffer.isActive = true;
 
 		state = SPAWNING;
 	}
@@ -230,7 +253,7 @@ class StandardBoardState implements IBoardState {
 
 	function handleDropStep() {
 		if (field.updateFall(field.totalRows - 1, 0)) {
-			if (rule.animations == TSU) {
+			if (animations == TSU) {
 				field.setSpriteVariations();
 			}
 
@@ -404,7 +427,7 @@ class StandardBoardState implements IBoardState {
 
 			var columnIndex: Int;
 
-			if (rule.randomizeGarbage) {
+			if (randomizeGarbage) {
 				columnIndex = rng.data.GetUpTo(columnPositions.length - 1);
 			} else {
 				columnIndex = 0;
@@ -440,6 +463,11 @@ class StandardBoardState implements IBoardState {
 		beginBorderColor = borderColor;
 		targetBorderColor = target;
 		borderColorT = 0;
+	}
+
+	public function addDesyncInfo(ctx: Serializer) {
+		field.addDesyncInfo(ctx);
+		garbageManager.addDesyncInfo(ctx);
 	}
 
 	public function update() {

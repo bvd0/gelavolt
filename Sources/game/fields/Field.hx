@@ -1,5 +1,6 @@
 package game.fields;
 
+import hxbit.Serializer;
 import game.gelos.FieldGeloPoint;
 import save_data.PrefsSettings;
 import game.copying.CopyableMatrix;
@@ -14,7 +15,6 @@ import utils.IntPoint;
 import game.gelos.FieldGelo;
 import game.gelos.Gelo;
 import utils.Point;
-import haxe.ds.Vector;
 import utils.Utils.negativeMod;
 import haxe.ds.ReadOnlyArray;
 
@@ -27,9 +27,8 @@ class Field implements ICopyFrom {
 	static final ORIGINAL_GARBAGE_COLUMNS = [0, 3, 2, 5, 1, 4];
 
 	@inject final prefsSettings: PrefsSettings;
-
-	@copy final gelos: CopyableMatrix<FieldGelo>;
 	@copy final markers: CopyableMatrix<IFieldMarker>;
+	@copy final gelos: CopyableMatrix<FieldGelo>;
 
 	@inject public var columns(default, null): Int;
 	@inject public var playAreaRows(default, null): Int;
@@ -405,6 +404,28 @@ class Field implements ICopyFrom {
 		final fieldY = Math.round((screenY + outerRows * Gelo.SIZE + Gelo.HALFSIZE) / Gelo.SIZE) - 1;
 
 		return {x: fieldX, y: fieldY};
+	}
+
+	public function addDesyncInfo(ctx: Serializer) {
+		for (y in 0...totalRows) {
+			for (x in 0...columns) {
+				if (isEmpty(x, y)) {
+					ctx.addByte(0);
+
+					continue;
+				}
+
+				final gelo = get(x, y);
+
+				if (gelo.state != IDLE) {
+					ctx.addByte(0);
+
+					continue;
+				}
+
+				ctx.addInt(gelo.color);
+			}
+		}
 	}
 
 	public function update() {

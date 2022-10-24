@@ -3,7 +3,6 @@ package game.gelos;
 import game.gelos.Gelo.GeloOptions;
 import kha.graphics2.Graphics;
 import kha.graphics4.Graphics as Graphics4;
-import utils.IntPoint;
 import game.gelos.GeloPopType;
 
 enum FieldGeloState {

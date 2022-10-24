@@ -2,23 +2,19 @@ package game.rules;
 
 import game.copying.ICopyFrom;
 
-class MarginTimeManager implements ICopyFrom {
-	final rule: Rule;
-
+class MarginTimeManager implements ICopyFrom implements hxbit.Serializable {
 	@copy var changeCounter: Int;
 
-	@copy public var marginTime(default, null): Int;
+	@:s @copy public var marginTime(default, null): Int;
 
 	@copy public var startMarginTime: Int;
 	@copy public var startTargetPoints: Int;
 	@copy public var isEnabled: Bool;
 	@copy public var targetPoints: Int;
 
-	public function new(rule: Rule) {
-		this.rule = rule;
-
-		startMarginTime = rule.marginTime;
-		startTargetPoints = rule.startTargetPoints;
+	public function new(startMarginTime: Int, startTargetPoints: Int) {
+		this.startMarginTime = startMarginTime;
+		this.startTargetPoints = startTargetPoints;
 		reset();
 
 		isEnabled = true;

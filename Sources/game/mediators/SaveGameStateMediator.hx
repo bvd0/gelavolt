@@ -2,6 +2,6 @@ package game.mediators;
 
 @:structInit
 class SaveGameStateMediator {
-	public var loadState: Int->Void;
-	public var saveState: Void->Void;
+	public final loadState: Void->Void;
+	public final saveState: Void->Void;
 }
