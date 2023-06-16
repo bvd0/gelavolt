@@ -3,14 +3,7 @@ package game.fields;
 import kha.graphics2.Graphics;
 
 class NullFieldMarker implements IFieldMarker {
-	public static var instance(get, null): NullFieldMarker;
-
-	static function get_instance() {
-		if (instance == null)
-			instance = new NullFieldMarker();
-
-		return instance;
-	}
+	public static final instance = new NullFieldMarker();
 
 	public final type: FieldMarkerType;
 
@@ -18,7 +11,7 @@ class NullFieldMarker implements IFieldMarker {
 		type = Null;
 	}
 
-	public function copy() {
+	public function copy(): Dynamic {
 		return instance;
 	}
 

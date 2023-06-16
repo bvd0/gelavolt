@@ -1,5 +1,6 @@
 package game.gamestatebuilders;
 
+import game.net.logger.NullSessionLogger;
 import game.rules.VersusRule;
 import game.boardstates.EndlessBoardState;
 import game.rules.AnimationsType;
@@ -47,6 +48,8 @@ import game.actionbuffers.ReceiveActionBuffer;
 import game.actionbuffers.SenderActionBuffer;
 #end
 
+using Safety;
+
 @:structInit
 @:build(game.Macros.buildOptionsClass(NetplayEndlessGameStateBuilder))
 class NetplayEndlessGameStateBuilderOptions {}
@@ -85,11 +88,11 @@ class NetplayEndlessGameStateBuilder implements INetplayGameStateBuilder {
 	@copy var rightBorderColorMediator: BorderColorMediator;
 	@copy var rightTargetMediator: GarbageTargetMediator;
 
-	@copy var leftGarbageTray: CenterGarbageTray;
+	@copyFrom var leftGarbageTray: CenterGarbageTray;
 	@copy var leftGarbageManager: GarbageManager;
 	@copy var leftScoreManager: ScoreManager;
-	@copy var leftChainSimDisplay: GarbageTray;
-	@copy var leftChainSimAccumDisplay: GarbageTray;
+	@copyFrom var leftChainSimDisplay: GarbageTray;
+	@copyFrom var leftChainSimAccumDisplay: GarbageTray;
 	@copy var leftChainSim: ChainSimulator;
 	@copy var leftChainCounter: ChainCounter;
 	@copy var leftField: Field;
@@ -100,11 +103,11 @@ class NetplayEndlessGameStateBuilder implements INetplayGameStateBuilder {
 	@copy var leftAllClearManager: AllClearManager;
 	@copy var leftPreview: VerticalPreview;
 
-	@copy var rightGarbageTray: CenterGarbageTray;
+	@copyFrom var rightGarbageTray: CenterGarbageTray;
 	@copy var rightGarbageManager: GarbageManager;
 	@copy var rightScoreManager: ScoreManager;
-	@copy var rightChainSimDisplay: GarbageTray;
-	@copy var rightChainSimAccumDisplay: GarbageTray;
+	@copyFrom var rightChainSimDisplay: GarbageTray;
+	@copyFrom var rightChainSimAccumDisplay: GarbageTray;
 	@copy var rightChainSim: ChainSimulator;
 	@copy var rightChainCounter: ChainCounter;
 	@copy var rightField: Field;
@@ -122,7 +125,7 @@ class NetplayEndlessGameStateBuilder implements INetplayGameStateBuilder {
 	var rightBoard: SingleStateBoard;
 
 	public var pauseMediator(null, default): Null<PauseMediator>;
-	@copy public var controlHintContainer(null, default): Null<ControlHintContainer>;
+	@nullCopyFrom public var controlHintContainer(null, default): Null<ControlHintContainer>;
 	public var rollbackMediator(null, default): Null<RollbackMediator>;
 
 	public var gameState(default, null): GameState;
@@ -178,8 +181,9 @@ class NetplayEndlessGameStateBuilder implements INetplayGameStateBuilder {
 	inline function initRollbackMediator() {
 		if (rollbackMediator == null) {
 			rollbackMediator = {
+				logger: NullSessionLogger.instance,
 				confirmFrame: () -> {},
-				rollback: (_) -> {}
+				rollback: () -> {}
 			};
 		}
 	}

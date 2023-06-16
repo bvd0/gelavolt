@@ -1,8 +1,11 @@
 package game.actionbuffers;
 
+import game.net.logger.ISessionLogger;
 import game.net.InputHistoryEntry;
 import game.mediators.RollbackMediator;
 import game.mediators.FrameCounter;
+
+using Safety;
 
 @:structInit
 private class LatestActionResults {
@@ -20,7 +23,7 @@ class ReceiveActionBuffer implements IActionBuffer {
 
 	final actions: Map<Int, ActionSnapshot>;
 
-	public var isActive: Bool;
+	public var isActive = true;
 
 	public function new(opts: ReceiveActionBufferOptions) {
 		Macros.initFromOpts();
@@ -45,13 +48,13 @@ class ReceiveActionBuffer implements IActionBuffer {
 			frame--;
 		}
 
-		return actions[frame];
+		return actions[frame].sure();
 	}
 
 	public function onInput(history: Array<InputHistoryEntry>) {
-		// trace('Received ${history.length} inputs on ${frameCounter.value}');
-
-		var rollbackTo: Null<Int> = null;
+		rollbackMediator.logger.push('Received ${history.length} inputs, last frame: ${history[history.length - 1].frame}');
+		
+		var shouldRollback = false;
 
 		for (e in history) {
 			final frame = e.frame;
@@ -60,23 +63,23 @@ class ReceiveActionBuffer implements IActionBuffer {
 
 			this.actions[frame] = snapshot;
 
+			if (shouldRollback) {
+				continue;
+			}
+
 			if (frameDiff < 1) {
 				continue;
 			}
 
-			if (rollbackTo != null) {
-				continue;
-			}
-
 			if (getAction(frame).isNotEqual(snapshot)) {
-				// trace('Inputs diverge, scheduling $frameDiff frame rollback to $frame!');
-				rollbackTo = frame;
+				rollbackMediator.logger.push('ROLLBACK SCHEDULED -- FROM: $frame -- LEN: $frameDiff');
+				shouldRollback = true;
 			}
 		}
 
-		if (rollbackTo != null) {
-			// trace('Executing rollback');
-			rollbackMediator.rollback(rollbackTo);
+
+		if (shouldRollback) {
+			rollbackMediator.rollback();
 		}
 	}
 

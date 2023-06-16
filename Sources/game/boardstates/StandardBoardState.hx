@@ -1,5 +1,6 @@
 package game.boardstates;
 
+import main.ScaleManager;
 import hxbit.Serializer;
 import utils.ValueBox;
 import game.rules.AnimationsType;
@@ -31,6 +32,8 @@ import game.copying.CopyableRNG;
 import game.garbage.IGarbageManager;
 import kha.graphics2.Graphics;
 import kha.graphics4.Graphics as Graphics4;
+
+using Safety;
 
 private enum InnerState {
 	SPAWNING;
@@ -65,7 +68,7 @@ class StandardBoardState implements IBoardState {
 
 	@copy var popPauseMaxT: Int;
 
-	@copy var currentActions: ActionSnapshot;
+	@copy var currentActions: Null<ActionSnapshot>;
 
 	@copy var popPauseT: Int;
 
@@ -79,19 +82,21 @@ class StandardBoardState implements IBoardState {
 	@copy var targetBorderColor: Color;
 	@copy var borderColorT: Int;
 
-	@copy var currentBeginStep: Null<BeginSimStep>;
-	@copy var currentDropStep: Null<DropSimStep>;
-	@copy var currentPopStep: Null<PopSimStep>;
-	@copy var currentEndStep: Null<EndSimStep>;
+	@nullCopy var currentBeginStep: Null<BeginSimStep>;
+	@nullCopy var currentDropStep: Null<DropSimStep>;
+	@nullCopy var currentPopStep: Null<PopSimStep>;
+	@nullCopy var currentEndStep: Null<EndSimStep>;
 
 	@copy var canDropGarbage: Bool;
 
-	@copy var state: InnerState;
+	@copy var state: Null<InnerState>;
 
 	public function new(opts: StandardBoardStateOptions) {
 		game.Macros.initFromOpts();
 
 		popPauseMaxT = 30;
+		popPauseT = 0;
+		firstDropFrame = false;
 
 		borderColor = White;
 		beginBorderColor = White;
@@ -106,8 +111,14 @@ class StandardBoardState implements IBoardState {
 		beginChainSimulation();
 	}
 
-	inline function copyFromSnapshot() {
-		field.copyFrom(chainSim.getViewedStep().fieldSnapshot);
+	function copyFromSnapshot() {
+		final vs = chainSim.getViewedStep();
+
+		if (vs == null) {
+			return;
+		}
+
+		field.copyFrom(vs.fieldSnapshot);
 	}
 
 	function nextStep() {
@@ -143,8 +154,8 @@ class StandardBoardState implements IBoardState {
 
 	function afterEnd() {}
 
-	function controlGroup() {
-		if (currentActions.rotateLeft) {
+	function controlGroup(actions: ActionSnapshot) {
+		if (actions.rotateLeft) {
 			if (canRotateLeft) {
 				geloGroup.rotateLeft();
 				canRotateLeft = false;
@@ -153,7 +164,7 @@ class StandardBoardState implements IBoardState {
 			canRotateLeft = true;
 		}
 
-		if (currentActions.rotateRight) {
+		if (actions.rotateRight) {
 			if (canRotateRight) {
 				geloGroup.rotateRight();
 				canRotateRight = false;
@@ -162,10 +173,10 @@ class StandardBoardState implements IBoardState {
 			canRotateRight = true;
 		}
 
-		if (currentActions.shiftLeft) {
+		if (actions.shiftLeft) {
 			geloGroup.chargeDASLeft();
 			geloGroup.shiftLeft();
-		} else if (currentActions.shiftRight) {
+		} else if (actions.shiftRight) {
 			geloGroup.chargeDASRight();
 			geloGroup.shiftRight();
 		} else {
@@ -174,9 +185,15 @@ class StandardBoardState implements IBoardState {
 	}
 
 	function initSpawningState() {
+		final currentPiece = queue.getCurrent();
+
+		if (currentPiece == null) {
+			return;
+		}
+
 		final screenCoords = field.cellToScreen(field.centerColumnIndex, field.outerRows - 1);
 
-		geloGroup.load(screenCoords.x, screenCoords.y + Gelo.HALFSIZE, queue.getCurrent());
+		geloGroup.load(screenCoords.x, screenCoords.y + Gelo.HALFSIZE, currentPiece);
 		queue.next();
 
 		preview.startAnimation(queue.currentIndex);
@@ -187,7 +204,11 @@ class StandardBoardState implements IBoardState {
 	}
 
 	function updateSpawningState() {
-		controlGroup();
+		if (currentActions == null) {
+			return;
+		}
+
+		controlGroup(currentActions.sure());
 
 		if (preview.isAnimationFinished) {
 			geloGroup.isVisible = true;
@@ -201,22 +222,32 @@ class StandardBoardState implements IBoardState {
 	}
 
 	function updateControllingState() {
-		controlGroup();
+		if (currentActions == null) {
+			return;
+		}
 
-		if (currentActions.hardDrop) {
+		final ca = currentActions.sure();
+
+		controlGroup(ca);
+
+		if (ca.hardDrop) {
 			geloGroup.hardDrop();
 			lockGroup();
 
 			return;
 		}
 
-		if (geloGroup.drop(currentActions.softDrop)) {
+		if (geloGroup.drop(ca.softDrop)) {
 			lockGroup();
 		}
 	}
 
 	function initSimStepState() {
 		final step = chainSim.getViewedStep();
+
+		if (step == null) {
+			return;
+		}
 
 		switch (step.type) {
 			case BEGIN:
@@ -273,12 +304,22 @@ class StandardBoardState implements IBoardState {
 	}
 
 	function initPopStepHandling() {
+		if (currentPopStep == null) {
+			return;
+		}
+
 		// Progress to POP_PAUSE state if Gelos have already popped. This can
 		// happen easily when continuing from a PopSimStep because field
 		// snapshots show the field state AFTER the Gelos have popped.
 		try {
 			for (c in currentPopStep.popInfo.clears.data) {
-				field.getAtPoint(c).startPopping(TSU);
+				final gelo = field.getAtPoint(c);
+
+				if (gelo == null) {
+					throw "Already popped";
+				}
+
+				gelo.startPopping(TSU);
 			}
 		} catch (_) {
 			initPopPauseState();
@@ -290,11 +331,17 @@ class StandardBoardState implements IBoardState {
 	}
 
 	function handlePopStep() {
+		if (currentPopStep == null) {
+			return;
+		}
+
 		final clears = currentPopStep.popInfo.clears;
 
 		// Wait for Gelos to finish popping animation
 		for (c in clears.data) {
-			if (field.getAtPoint(c).state == POPPING)
+			final gelo = field.getAtPoint(c);
+
+			if (gelo != null && gelo.state == POPPING)
 				return;
 		}
 
@@ -308,10 +355,15 @@ class StandardBoardState implements IBoardState {
 	}
 
 	function initPopPauseState() {
-		popPauseT = 0;
+		if (currentPopStep == null) {
+			return;
+		}
 
+		final cps = currentPopStep.sure();
+
+		final popInfo = cps.popInfo;
+		final linkInfo = cps.linkInfo;
 		final absPos = geometries.absolutePosition;
-		final popInfo = currentPopStep.popInfo;
 		final beginnerScreenCoords = new Array<ScreenGeloPoint>();
 
 		for (b in popInfo.beginners.data) {
@@ -326,7 +378,7 @@ class StandardBoardState implements IBoardState {
 
 		final firstPop = beginnerScreenCoords[0];
 
-		chainCounter.startAnimation(currentPopStep.chain, {x: firstPop.x, y: firstPop.y}, currentPopStep.linkInfo.isPowerful);
+		chainCounter.startAnimation(cps.chain, {x: firstPop.x, y: firstPop.y}, linkInfo.isPowerful);
 
 		for (c in popInfo.clears.data) {
 			if (c.color.isGarbage())
@@ -343,21 +395,20 @@ class StandardBoardState implements IBoardState {
 					dy: -10 * rng.data.GetFloatIn(0.5, 1.5),
 					dyIncrement: 0.75 * rng.data.GetFloatIn(0.5, 1.5),
 					maxT: Std.int((30 + i * 6) * rng.data.GetFloatIn(0.5, 1.5)),
-					color: prefsSettings.primaryColors[c.color]
+					color: prefsSettings.primaryColors[c.color].sure()
 				}));
 			}
 		}
 
 		allClearManager.stopAnimation();
 
-		final linkInfo = currentPopStep.linkInfo;
-
 		scoreManager.addScoreFromLink(linkInfo);
 
-		garbageManager.sendGarbage(linkInfo.garbage, beginnerScreenCoords);
+		garbageManager.sendGarbage(linkInfo.garbage, beginnerScreenCoords, linkInfo.sendsAllClearBonus);
 
 		scoreManager.resetDropBonus();
 
+		popPauseT = 0;
 		state = POP_PAUSE;
 	}
 
@@ -371,16 +422,22 @@ class StandardBoardState implements IBoardState {
 	}
 
 	function initEndStepHandling() {
+		if (currentEndStep == null) {
+			return;
+		}
+
+		final ces = currentEndStep.sure();
+
 		beforeEnd();
 
-		garbageManager.confirmGarbage(currentEndStep.totalGarbage);
+		garbageManager.confirmGarbage(ces.totalGarbage);
 
-		if (currentEndStep.endsInAllClear) {
+		if (ces.endsInAllClear) {
 			allClearManager.startAnimation();
 		}
 
-		if (currentEndStep.isLastLinkPowerful) {
-			final chain = currentEndStep.chain;
+		if (ces.isLastLinkPowerful) {
+			final chain = ces.chain;
 
 			if (chain == 1) {
 				scoreManager.displayActionText("THORN", Magenta);
@@ -490,6 +547,7 @@ class StandardBoardState implements IBoardState {
 				}
 			case POP_PAUSE:
 				updatePopPauseState();
+			case null:
 		}
 
 		allClearManager.update();

@@ -1,7 +1,7 @@
 package game.copying;
 
 class CopyableMatrix<T:ICopy> implements ICopyFrom {
-	public final data: Array<Array<T>>;
+	public final data: Array<Array<Null<T>>>;
 
 	public function new(height: Int) {
 		data = [for (_ in 0...height) []];
@@ -28,7 +28,7 @@ class CopyableMatrix<T:ICopy> implements ICopyFrom {
 		return this;
 	}
 
-	public function copy() {
+	public function copy(): Dynamic {
 		return new CopyableMatrix<T>(0).copyFrom(this);
 	}
 }

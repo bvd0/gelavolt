@@ -1,5 +1,7 @@
 package lobby;
 
+import main.ScreenManager;
+import game.net.logger.SessionLogger;
 import kha.System;
 import haxe.io.Bytes;
 import hxbit.Serializer;
@@ -20,18 +22,30 @@ import js.Browser;
 import peerjs.Peer;
 #end
 
+using Safety;
+
 class LobbyPage extends MenuPageBase {
 	static inline final RELAY_PORT_MESSAGE_TYPE = 1;
 	static inline final SERVER_URL = "szi5os.colyseus.de";
 
 	static function startGame(peer: Peer, isHost: Bool, message: String) {
 		final parts = message.split(";");
-		final s = new SessionManager(peer, isHost, parts[0]);
+
+		final sF = new FrameCounter();
+		final l = new SessionLogger(sF);
+		final s = new SessionManager({
+			peer: peer,
+			isHost: isHost,
+			remoteID: parts[0],
+			frameCounter: sF,
+			logger: l
+		});
 		final rule = Serializer.load(Bytes.ofHex(parts[1]), VersusRule);
 
 		final f = new FrameCounter();
 
 		ScreenManager.switchScreen(new NetplayGameScreen({
+			logger: l,
 			session: s,
 			frameCounter: f,
 			gameStateBuilder: new NetplayEndlessGameStateBuilder({
@@ -83,7 +97,7 @@ class LobbyPage extends MenuPageBase {
 
 	var room: Null<Room<WaitingRoomState>>;
 	var roomURL: Null<String>;
-	var showCopied: Bool;
+	var showCopied = false;
 
 	public function new() {
 		super({
@@ -140,7 +154,7 @@ class LobbyPage extends MenuPageBase {
 				this.room = room;
 				roomURL = 'https://gelavolt.io/#${room.id}';
 
-				Browser.navigator.clipboard.writeText(roomURL);
+				Browser.navigator.clipboard.writeText(roomURL.sure());
 
 				addRoomHandler(peer, room);
 			});
@@ -148,17 +162,22 @@ class LobbyPage extends MenuPageBase {
 	}
 
 	override function update() {
-		final inputDevice = menu.inputDevice;
+		if (menu == null) {
+			return;
+		}
+
+		final m = menu.sure();
+		final inputDevice = m.inputDevice;
 
 		if (inputDevice.getAction(BACK)) {
 			if (room != null)
 				room.leave(true);
 
-			menu.popPage();
+			m.popPage();
 		}
 
 		if (roomURL != null && inputDevice.getAction(CONFIRM)) {
-			Browser.navigator.clipboard.writeText(roomURL).then((_) -> {
+			Browser.navigator.clipboard.writeText(roomURL.sure()).then((_) -> {
 				showCopied = true;
 			});
 		}

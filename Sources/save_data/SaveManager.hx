@@ -4,13 +4,15 @@ import kha.Storage;
 import kha.Blob;
 import hxbit.Serializer;
 
+using Safety;
+
 class SaveManager {
 	static inline final PROFILES_FILENAME = "profiles";
 	static inline final GRAPHICS_FIELNAME = "graphics";
 
 	public static var profiles(default, null) = new Array<Profile>();
 
-	public static var graphics: GraphicsSettings;
+	public static var graphics: GraphicsSettings = {};
 
 	public static function saveProfiles() {
 		final ser = new Serializer();
@@ -34,19 +36,25 @@ class SaveManager {
 
 		try {
 			if (blob == null) {
-				throw null;
+				throw "Null Blob";
 			}
 
 			ser.beginLoad(blob.bytes);
 
-			profiles = ser.getArray(() -> {
+			// Inlined library functions
+			// falsly trigger null safety
+			@:nullSafety(Off)
+			final ps: Array<Profile> = ser.getArray(() -> {
 				return ser.getKnownRef(Profile);
-			});
+			}).sure();
 
 			ser.endLoad();
 
-			if (profiles.length == 0)
-				throw null;
+			if (ps.length == 0) {
+				throw "Empty Profile List";
+			}
+
+			profiles = ps;
 		} catch (_) {
 			profiles = [];
 			newProfile();
@@ -91,7 +99,7 @@ class SaveManager {
 
 		try {
 			if (blob == null)
-				throw null;
+				throw "Null Blob";
 
 			ser.beginLoad(blob.bytes);
 

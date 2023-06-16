@@ -1,5 +1,6 @@
 package main_menu.ui;
 
+import main.ScreenManager;
 import game.screens.BackupStateGameScreen;
 import game.gamestatebuilders.TrainingGameStateBuilder;
 import input.AnyInputDevice;
@@ -17,6 +18,8 @@ import kha.Window;
 import js.Browser;
 import lobby.LobbyPage;
 #end
+
+using Safety;
 
 class MainMenuPage extends ListMenuPage {
 	static inline final DISCORD_INVITE = "https://discord.gg/wsWArpAFJK";
@@ -77,18 +80,11 @@ class MainMenuPage extends ListMenuPage {
 								dropSpeed: 2.6,
 								randomizeGarbage: true,
 							},
-							inputDevice: AnyInputDevice.instance,
+							inputDevice: AnyInputDevice.instance.sure(),
 							replayData: null
 						})));
 					}
 				}),
-				#if kha_html5
-				new SubPageWidget({
-					title: "Host Netplay Test (WIP)",
-					description: [],
-					subPage: new LobbyPage()
-				}),
-				#end
 				new SubPageWidget({
 					title: "Options",
 					description: ["Change Various Options and Settings"],

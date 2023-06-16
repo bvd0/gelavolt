@@ -4,7 +4,7 @@ import kha.Color;
 import utils.Utils.lerp;
 import kha.graphics2.Graphics;
 
-using kha.graphics2.GraphicsExtension;
+using utils.GraphicsExtension;
 
 @:structInit
 @:build(game.Macros.buildOptionsClass(PixelFloatParticle))
@@ -47,7 +47,7 @@ class PixelFloatParticle implements IParticle {
 		game.Macros.initFromOpts();
 	}
 
-	public function copy() {
+	public function copy(): Dynamic {
 		return new PixelFloatParticle({
 			dx: dx,
 			dy: dy,

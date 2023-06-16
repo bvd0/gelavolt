@@ -21,7 +21,7 @@ import game.gelos.Gelo;
 import utils.Utils.lerp;
 import utils.Utils.negativeMod;
 
-using kha.graphics2.GraphicsExtension;
+using utils.GraphicsExtension;
 
 enum GeloGroupState {
 	CONTROLLING;
@@ -181,7 +181,7 @@ class GeloGroup implements ICopyFrom {
 	}
 
 	function updateShadow(cellX: Int, cellY: Int) {
-		final workField = field.copy();
+		final workField: Field = field.copy();
 
 		final mainGelo = workField.newGelo(cellX, cellY, main.color, true);
 		final otherGelos: Array<FieldGelo> = [];
@@ -505,9 +505,6 @@ class GeloGroup implements ICopyFrom {
 	}
 
 	public function update() {
-		if (main == null)
-			return;
-
 		prevRotationAngle = rotationAngle;
 		updateRotation();
 

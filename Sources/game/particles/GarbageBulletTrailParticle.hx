@@ -2,7 +2,7 @@ package game.particles;
 
 import kha.graphics2.Graphics;
 
-using kha.graphics2.GraphicsExtension;
+using utils.GraphicsExtension;
 
 import kha.Color;
 import utils.Utils.lerp;
@@ -36,7 +36,7 @@ class GarbageBulletTrailParticle implements IParticle {
 		game.Macros.initFromOpts();
 	}
 
-	public function copy() {
+	public function copy(): Dynamic {
 		return new GarbageBulletTrailParticle({
 			x: x,
 			y: y,

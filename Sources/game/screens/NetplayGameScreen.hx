@@ -1,5 +1,6 @@
 package game.screens;
 
+import game.net.logger.ISessionLogger;
 import hxbit.Serializer;
 import haxe.crypto.Crc32;
 import game.mediators.FrameCounter;
@@ -13,6 +14,7 @@ import game.net.SessionManager;
 class NetplayGameScreenOptions {}
 
 class NetplayGameScreen extends GameScreenBase {
+	@inject final logger: ISessionLogger;
 	@inject final session: SessionManager;
 	@inject final frameCounter: FrameCounter;
 	@inject final gameStateBuilder: INetplayGameStateBuilder;
@@ -37,6 +39,7 @@ class NetplayGameScreen extends GameScreenBase {
 		};
 
 		gameStateBuilder.rollbackMediator = {
+			logger: logger,
 			confirmFrame: confirmFrame,
 			rollback: rollback
 		};
@@ -87,12 +90,18 @@ class NetplayGameScreen extends GameScreenBase {
 		lastConfirmedFrame.copyFrom(gameStateBuilder);
 	}
 
-	function rollback(resimulate: Int) {
+	function rollback() {
+		var frameDiff = frameCounter.value - session.lastConfirmedFrame;
+		logger.push('STARTING ROLLBACK: ${session.lastConfirmedFrame} ---> ${frameCounter.value}');
+
 		gameStateBuilder.copyFrom(lastConfirmedFrame);
 
-		while (--resimulate >= 0) {
+		while (--frameDiff >= 0) {
+			logger.push('IN ROLLBACK: $frameDiff');
 			gameState.update();
 		}
+
+		logger.push('ROLLBACK FINISHED');
 	}
 
 	override function dispose() {

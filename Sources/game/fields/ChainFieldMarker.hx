@@ -30,10 +30,14 @@ class ChainFieldMarker implements IFieldMarker {
 		font = Assets.fonts.ka1;
 		fontHeight = font.height(FONTSIZE);
 
+		chain = 0;
+		chainString = "";
+		fontWidth = 0;
+
 		type = Chain;
 	}
 
-	public function copy() {
+	public function copy(): Dynamic {
 		return new ChainFieldMarker().copyFrom(this);
 	}
 

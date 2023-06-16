@@ -1,5 +1,6 @@
 package ui;
 
+import main.ScreenManager;
 import main_menu.MainMenuScreen;
 import kha.graphics2.Graphics;
 import game.Macros;
@@ -35,7 +36,10 @@ class ErrorPage extends MenuPageBase {
 	}
 
 	override function update() {
-		if (menu.inputDevice.getAction(BACK) || menu.inputDevice.getAction(CONFIRM))
+		if (menu == null)
+			return;
+
+		if (menu.inputDevice.getAction(BACK) || menu!.inputDevice!.getAction(CONFIRM))
 			callback();
 	}
 

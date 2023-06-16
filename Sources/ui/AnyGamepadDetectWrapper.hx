@@ -5,6 +5,8 @@ import input.GamepadInputDevice;
 import input.AnyInputDevice;
 import kha.graphics2.Graphics;
 
+using Safety;
+
 @:structInit
 @:build(game.Macros.buildOptionsClass(AnyGamepadDetectWrapper))
 class AnyGamepadDetectWrapperOptions {}
@@ -26,27 +28,36 @@ class AnyGamepadDetectWrapper extends MenuPageBase {
 	}
 
 	inline function popPage() {
-		menu.popInputDevice();
-		menu.popPage();
+		menu!.popInputDevice();
+		menu!.popPage();
 	}
 
 	override function onShow(menu: Menu) {
 		super.onShow(menu);
 
 		menu.pushInputDevice(keyboardDevice);
-		AnyInputDevice.instance.resetLastDeviceID();
+		AnyInputDevice.resetLastDeviceID();
 	}
 
 	override function update() {
-		final anyDevice = AnyInputDevice.instance;
+		if (menu == null || AnyInputDevice.instance == null)
+			return;
+
+		final anyDevice = AnyInputDevice.instance.sure();
 		final lastID = AnyInputDevice.lastDeviceID;
 
+		var gamepad: Null<GamepadInputDevice> = null;
+
 		if (lastID != AnyInputDevice.KEYBOARD_ID) {
-			final page = pageBuilder(anyDevice.getGamepad(lastID));
+			gamepad = anyDevice.getGamepad(lastID);
+		}
+
+		if (gamepad != null) {
+			final page = pageBuilder(gamepad);
 
 			// Replace Wrapper with actual widget
 			popPage();
-			menu.pushPage(page);
+			menu!.pushPage(page);
 
 			return;
 		}
